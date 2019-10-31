@@ -16,18 +16,19 @@ class tf_Record_Processor():
     outfiles = [i + '.tfrecord' for i in outfiles]
     for file in inDirFiles:
       if '.tfrecord' in file:
-        outfile = os.path.join(outDir, file)
         raw_tfrecord = os.path.join(inDir, file)
         dataset = tf.data.TFRecordDataset(raw_tfrecord)
         for raw_example in dataset:
           new_Examples += self.__split_on_frames(raw_example)
     # shuffle new examples to ensure equal distribution of classes across files 
     shuffle(new_Examples)
-    for example in new_Examples:
-      file = np.random.choice(outfiles) 
-      file = os.path.join(outDir, file)
-      tfwriter = tf.io.TFRecordWriter(file)
-      tfwriter.write(example.SerializeToString())
+    splits = np.array_split(np.array(new_Examples), len(outfiles))
+    for i, sublist in enumerate(splits):
+      outfile = outfiles[i]
+      outfile = os.path.join(outDir, outfile)
+      with tf.io.TFRecordWriter(outfile) as tfwriter:
+        for record in sublist:
+          tfwriter.write(record.SerializeToString())
 
   def __split_on_frames(self, raw_example):
     segmented = []
@@ -58,3 +59,24 @@ class tf_Record_Processor():
       example = tf.train.Example()
       example.ParseFromString(raw_record.numpy())
       print(example)
+
+  # def count_tfrecords(self):
+  #   dataset = tf.data.TFRecordDataset(raw_tfrecord)
+  #   for raw_example in dataset:
+      
+
+if __name__ == '__main__':
+  
+  data_dir = '/Users/lukeprice/github/multi-modal/datafiles/Y8M_build/'
+  trainFiles = [os.path.join(data_dir, file) for file in os.listdir(data_dir) if '.tfrecord' in file]
+
+  tfr = tf_Record_Processor()
+  tfr.write_segments(inDir = data_dir, 
+  outDir = '/Users/lukeprice/github/multi-modal/datafiles/Y8M_segmented')
+
+# segmented_dir = '/Users/lukeprice/github/multi-modal/datafiles/Y8M_segmented/'
+# read_file = os.path.join(segmented_dir, os.listdir(segmented_dir)[0])
+# tfr.read_segmented_tfrecord(read_file)
+
+
+
