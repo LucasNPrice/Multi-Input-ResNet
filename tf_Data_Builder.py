@@ -5,10 +5,6 @@ import sys
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 
-""" NOTE:
-    audio samples seem to be different lengths
-    - the tails of each audio sample is all zero 
-    - zeros begin at 244, None, 176, for example """
 
 class tf_Data_Builder():
 
@@ -53,8 +49,6 @@ class tf_Data_Builder():
       fixed_length = 128)
     audio = tf.reshape(audio, 
       [self.batchsize, self.feature_num, tf.shape(audio)[-1]])
-    # audio = tf.reshape(audio, 
-    #   [self.batchsize, self.feature_num*128])
 
     return IDs, labels, images, audio
 
