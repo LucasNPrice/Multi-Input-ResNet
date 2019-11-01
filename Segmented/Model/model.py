@@ -10,7 +10,6 @@ from tensorflow.keras import optimizers
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, Activation, Flatten, Dense, MaxPooling2D, Dropout, BatchNormalization
 from tensorflow import optimizers
-
 """ 29545 records sharded across 41 .tfrecord files! """
 
 class Model():
@@ -19,31 +18,56 @@ class Model():
 
   def build_model(self):
     self.model = Sequential()
+
     self.model.add(Conv2D(input_shape = (32, 32, 1),
       filters = 64, 
       kernel_size = 3,
-      activation = 'relu'))
-    self.model.add(BatchNormalization())
+      activation = 'elu'))
+    # self.model.add(Conv2D(filters = 64, 
+    #   kernel_size = 3,
+    #   activation = 'elu'))
+    # self.model.add(BatchNormalization())
     self.model.add(MaxPooling2D(pool_size=(2, 2)))
     self.model.add(Dropout(0.2))
+
+    # self.model.add(Conv2D(filters = 128, 
+    #   kernel_size = 3,
+    #   activation = 'elu'))
+    # self.model.add(Conv2D(filters = 128, 
+    #   kernel_size = 3,
+    #   activation = 'elu'))
+    # self.model.add(BatchNormalization())
+    # self.model.add(MaxPooling2D(pool_size=(2, 2)))
+    # self.model.add(Dropout(0.2))
+
+    # self.model.add(Conv2D(filters = 256, 
+    #   kernel_size = 3,
+    #   activation = 'elu'))
+    # self.model.add(Conv2D(filters = 256, 
+    #   kernel_size = 3,
+    #   activation = 'elu'))
+    # self.model.add(BatchNormalization())
+    # # self.model.add(MaxPooling2D(pool_size=(2, 2)))
+    # self.model.add(Dropout(0.2))
+
     self.model.add(Flatten())
+    # self.model.add(Dense(512, activation = 'elu'))
+    # self.model.add(Dropout(0.2))
+    # self.model.add(Dense(128, activation = 'elu'))
+    self.model.add(Dense(64, activation = 'elu'))
     self.model.add(Dense(5, activation = 'sigmoid'))
     # return model
 
   def train(self,epochs):
-    optimizer = tf.keras.optimizers.Adam(lr=0.005)
+    optimizer = tf.keras.optimizers.Adam(lr=0.0005)
     loss_function = tf.keras.losses.BinaryCrossentropy(from_logits=True)
     loss_history = []
-
-    """ for each epochs """
     for epoch in range(epochs):
       epoch_loss = []
       with tqdm(total = 29545 // 32) as pbar: 
-        """ for each batch in epoch """
         for batch, (images, labels) in enumerate(self.data_builder.dataset):
           labels = tf.sparse.to_dense(labels)
           multi_hotted_labels = self.data_builder.multi_hot_classes(labels)
-          """ begin gradient tape """
           with tf.GradientTape() as tape:
             # get logits/outputs by sending images to model 
             logits = self.model(tf.cast(images,tf.float32))
@@ -61,6 +85,16 @@ class Model():
       print('Epoch {} avg. loss = {}'.format(epoch+1,float(avg_loss_on_epoch)))
       print('Epoch {} final batch loss = {}'.format(epoch+1,float(loss)))
 
+  def predict(self):
+    self.predictions = []
+    self.true_labels = []
+    for batch, (images, labels) in enumerate(self.data_builder.dataset):
+      logit_predictions = self.model(tf.cast(images,tf.float32))
+      logit_predictions = tf.round(logit_predictions)
+      self.predictions.extend(logit_predictions)
+      labels = tf.sparse.to_dense(labels)
+      self.true_labels.extend(self.data_builder.multi_hot_classes(labels))
+
 
 if __name__ == '__main__':
   
@@ -76,7 +110,8 @@ if __name__ == '__main__':
 
   NN = Model(data_builder_object = data_builder)
   NN.build_model()
-  NN.train(epochs = 3)
+  NN.train(epochs = 1)
+  NN.predict()
   sys.exit()
 
 

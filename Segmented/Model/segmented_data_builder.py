@@ -9,15 +9,9 @@ class tf_Data_Builder():
 
   def __init__(self):
     pass
-  
-  def fit_multi_hot_encoder(self, class_labels):
-    """ fit one-hot encoder """
-    self.class_labels = class_labels
-    self.onehot_encoder = OneHotEncoder(sparse=False, categories='auto')
-    self.onehot_encoder.fit(self.class_labels)
 
   def create_dataset(self, tf_datafiles, batch_size):
-    """ create batched dataset to feed to network """
+    """ creates Dataset object to feed to network """
     self.dataset = tf.data.TFRecordDataset(tf_datafiles)
     self.dataset = self.dataset.map(self.__parse_function, num_parallel_calls=4)
     # self.dataset = self.dataset.repeat()    
@@ -25,7 +19,7 @@ class tf_Data_Builder():
     self.dataset = self.dataset.batch(batch_size, drop_remainder=True)
 
   def __parse_function(self, raw_tfrecord):
-
+    """ builds data structure transformation pipeline """
     features = {
       'id': tf.io.FixedLenFeature([],dtype=tf.string),
       'labels': tf.io.VarLenFeature(dtype=tf.int64),
@@ -33,11 +27,9 @@ class tf_Data_Builder():
       'audio': tf.io.FixedLenFeature([],dtype=tf.string),
       'rgb': tf.io.FixedLenFeature([],dtype=tf.string)
     }
-
     data = tf.io.parse_single_example(
       serialized = raw_tfrecord,
       features = features)
-
     IDs = data['id']
     frame = data['frame']
     labels = data['labels']
@@ -52,10 +44,16 @@ class tf_Data_Builder():
       input_bytes = images, 
       out_type = tf.uint8)
     images = tf.reshape(images, [img_dim, img_dim, 1])
-
+    images = tf.image.per_image_standardization(images)
 
     return images, labels
     return IDs, frame, labels, images, audio
+
+  def fit_multi_hot_encoder(self, class_labels):
+    """ fits one-hot encoder """
+    self.class_labels = class_labels
+    self.onehot_encoder = OneHotEncoder(sparse=False, categories='auto')
+    self.onehot_encoder.fit(self.class_labels)
 
   def multi_hot_classes(self, labels):
     """ 
@@ -75,18 +73,14 @@ class tf_Data_Builder():
 
     return tf.cast(onehot_labels, tf.float64)
 
-
 if __name__ == '__main__':
 
   data_dir = '/Users/lukeprice/github/multi-modal/datafiles/Y8M_segmented/'
   trainFiles = [os.path.join(data_dir, file) for file in os.listdir(data_dir) if '.tfrecord' in file]
-  tfd = tf_Data_Builder(
-    tf_files = trainFiles,
-    batchsize = 32, 
-    target_classes = np.array([[170],[1454],[709],[1057],[1308]]))
-  tfd.create_dataset()
-  for batch, (image, label) in enumerate(tfd.dataset):
-    print(label)
+  data_builder = tf_Data_Builder()
+  data_builder.create_dataset(tf_datafiles = trainFiles, batch_size = 32)
+  for batch, (image, label) in enumerate(data_builder.dataset):
+    print(image[0])
     input()
    
 
