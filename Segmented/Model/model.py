@@ -56,6 +56,7 @@ class Model():
     # self.model.add(Dense(128, activation = 'elu'))
     self.model.add(Dense(64, activation = 'elu'))
     self.model.add(Dense(5, activation = 'sigmoid'))
+    self.model.summary()
     # return model
 
   def train(self,epochs):

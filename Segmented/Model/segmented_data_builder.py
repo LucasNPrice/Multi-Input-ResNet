@@ -38,6 +38,7 @@ class tf_Data_Builder():
     audio = tf.io.decode_raw(
       input_bytes = audio, 
       out_type = tf.uint8)
+    audio = tf.reshape(audio, [128,1])
     images = data['rgb']
     img_dim = 32
     images = tf.io.decode_raw(
@@ -46,7 +47,7 @@ class tf_Data_Builder():
     images = tf.reshape(images, [img_dim, img_dim, 1])
     images = tf.image.per_image_standardization(images)
 
-    return images, labels
+    return images, audio, labels
     return IDs, frame, labels, images, audio
 
   def fit_multi_hot_encoder(self, class_labels):
@@ -79,8 +80,10 @@ if __name__ == '__main__':
   trainFiles = [os.path.join(data_dir, file) for file in os.listdir(data_dir) if '.tfrecord' in file]
   data_builder = tf_Data_Builder()
   data_builder.create_dataset(tf_datafiles = trainFiles, batch_size = 32)
-  for batch, (image, label) in enumerate(data_builder.dataset):
-    print(image[0])
+  for batch, (image, audio, label) in enumerate(data_builder.dataset):
+    print(audio)
+    input()
+    print(image)
     input()
    
 
