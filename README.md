@@ -14,5 +14,6 @@
   - builds TensorFlow Dataset for dynamic loading of data for models 
   - includes embdedding/multi-hot methods for label transformations 
   
-  ![Image description](multi_model.png =500x2000)
+<!--  ![Image description](multi_model.png =500x2000)-->
+  <img src="multi_model.png" alt="model_graph" width="500" height="2000"/>
 
