@@ -45,8 +45,8 @@ class ResNet():
     X_shortcut = X
     F1, F2, F3 = filters
     ks = (kernel_size, kernel_size)
-    conv_name = 'Conv_Stage_' + str(stage) + '_Block' + str(block)
-    BN_name = 'BN_Stage_' + str(stage) + '_Block' + str(block)
+    conv_name = 'Conv_Stage_' + str(stage) + '_Block_' + str(block)
+    BN_name = 'BN_Stage_' + str(stage) + '_Block_' + str(block)
 
     # first block
     X = Conv2D(filters = F1, kernel_size = (1,1), strides = (1,1), padding = 'valid', 
@@ -79,8 +79,8 @@ class ResNet():
     X_shortcut = X
     F1, F2, F3 = filters
     ks = (kernel_size, kernel_size)
-    conv_name = 'Conv_Stage_' + str(stage) + '_Block' + str(block)
-    BN_name = 'BN_Stage_' + str(stage) + '_Block' + str(block)
+    conv_name = 'Conv_Stage_' + str(stage) + '_Block_' + str(block)
+    BN_name = 'BN_Stage_' + str(stage) + '_Block_' + str(block)
     s = stride
 
     # first block

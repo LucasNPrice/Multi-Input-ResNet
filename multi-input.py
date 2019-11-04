@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow import keras 
-from tensorflow.keras import layers
-from tensorflow.keras.layers import MaxPooling2D, BatchNormalization
+from tensorflow.keras import layers, Input, Model
+from tensorflow.keras.layers import MaxPooling2D, BatchNormalization, Flatten, Dense, concatenate
 from ResNet import ResNet
 from segmented_data_builder import tf_Data_Builder
 from tqdm import tqdm
@@ -19,23 +19,16 @@ class Multi_Modal():
       filters = 32,
       kernel_size = 3,
       activation = 'relu')
-    dense_layer = layers.Dense(
-      units = 32, 
-      activation = 'relu',
-      name = 'dense_Audio')
     x = conv1D_layer(inputs)
     x = BatchNormalization()(x)
-    # x = dense_layer(inputs)
-    # x = BatchNormalization()(x)
-    # x = layers.Flatten()(x)
     return x
 
   def compile_multi_modal_network(self, model_summary = True, save_img = False):
     # define input shapes
-    image_inputs = keras.Input(
+    image_inputs = Input(
       shape=(32,32,1), 
       name = 'image_Inputs')
-    audio_inputs = keras.Input(
+    audio_inputs = Input(
       shape=(128,1), 
       name = 'audio_Inputs')
     
@@ -43,27 +36,31 @@ class Multi_Modal():
     resnet_model = ResNet(trim_front = True, trim_end = True, X_input = image_inputs)
     x_image = resnet_model.resnet()
 
-    # send audio to 1D conv layers
+    # send audio to 1D conv layers - future updates 
     x_audio = self.convAudioNet(audio_inputs)
 
     # flatten for dense layer
-    x_image = layers.Flatten()(x_image)
-    x_audio = layers.Flatten()(x_audio)
+    x_image = Flatten()(x_image)
+    x_audio = Flatten()(x_audio)
 
     # get image and audio to equal number of units 50/50
-    x_image = layers.Dense(units = 500, activation = 'relu', name = 'dense_image')(x_image)
-    x_audio = layers.Dense(units = 500, activation = 'relu', name = 'dense_audio')(x_audio)
+    x_image = BatchNormalization()(x_image)
+    x_image = Dense(units = 1000, activation = 'relu', name = 'dense_image')(x_image)
+    x_audio = Dense(units = 1000, activation = 'relu', name = 'dense_audio')(x_audio)
+    x_image = BatchNormalization()(x_image)
+    x_audio = BatchNormalization()(x_audio)
 
-    x = layers.concatenate([x_image, x_audio])
-    x = layers.Dense(100, activation='relu', name='First_Dense')(x)
+    # concatenate inputs 
+    x = concatenate([x_image, x_audio])
+    x = Dense(units = x.shape[1], activation = 'relu', name = 'Merged_dense_1')(x)
+    x = Dense(units = 1000, activation = 'relu', name = 'Merged_dense_2')(x)
+    x = Dense(100, activation='relu', name='Merged_Dense_3')(x)
     
-    output_layer = layers.Dense(
-      units = 5, 
-      activation='sigmoid', 
+    output_layer = Dense(units = 5, activation='sigmoid', 
       name = 'output_Layer')
     outputs = output_layer(x)
 
-    self.model = keras.Model(
+    self.model = Model(
       inputs=[image_inputs, audio_inputs], 
       outputs=outputs)
     if model_summary:
@@ -72,10 +69,11 @@ class Multi_Modal():
       keras.utils.plot_model(self.model, 'multi_model.png')
     # return model
 
-  def train_model(self, epochs):
+
+  def train_model(self, epochs, learning_rate = 0.0005):
     # model = self.multi_modal_network(True)
     print('\nTraining Model')
-    optimizer = tf.keras.optimizers.Adam(lr=0.0005)
+    optimizer = tf.keras.optimizers.Adam(learning_rate)
     loss_function = tf.keras.losses.BinaryCrossentropy(from_logits=True)
     loss_history = []
     for epoch in range(epochs):
@@ -97,6 +95,7 @@ class Multi_Modal():
       avg_loss_on_epoch = np.mean(epoch_loss)
       print('Epoch {} avg. loss = {}'.format(epoch+1,float(avg_loss_on_epoch)))
       print('Epoch {} final batch loss = {}'.format(epoch+1,float(loss)))
+
 
   def predict_model(self):
     print('\nPredicting Model')
@@ -158,8 +157,9 @@ if __name__ == '__main__':
   # Create multi-modal object
   model_object = Multi_Modal(data_builder)
   model_object.compile_multi_modal_network(True, True)
-  model_object.train_model(1)
+  model_object.train_model(epochs = 5, learning_rate = 0.0001)
   model_object.predict_model()
+  print(model_object.predictions)
   model_object.get_model_metrics()
 
 
