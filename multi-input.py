@@ -33,11 +33,14 @@ class Multi_Modal():
       name = 'audio_Inputs')
     
     # create ResNet portion of multi-input model
-    resnet_model = ResNet(trim_front = True, trim_end = True, X_input = image_inputs)
-    x_image = resnet_model.resnet()
+    resnet2D = ResNet(trim_front = True, trim_end = True, X_input = image_inputs)
+    x_image = resnet2D.ResNet2D()
 
     # send audio to 1D conv layers - future updates 
-    x_audio = self.convAudioNet(audio_inputs)
+    resnet1D = ResNet(trim_front = True, trim_end = True, X_input = audio_inputs)
+    x_audio = resnet1D.ResNet1D()
+
+    # x_audio = self.convAudioNet(audio_inputs)
 
     # flatten for dense layer
     x_image = Flatten()(x_image)
