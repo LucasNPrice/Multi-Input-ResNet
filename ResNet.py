@@ -13,10 +13,17 @@ import unittest
 
 class ResNet():
   def __init__(self, trim_front = False, trim_end = False,  **kwargs):
+    """ NOTE: trim_front and trim_end as True are for transfer models
+        trim_front: true to remove input layer
+                    false to keep input layer
+        trim_end: true to remove final output (logit) layer; return feature map
+                  false to keep final output layer; return logits 
+        Optional:
+          input_shape: shape of input data X
+          num_classes: number of classes in softmax/sigmoid output layer 
+    """
     self.trim_front = trim_front
     self.trim_end = trim_end
-    # if True, we dont need shape 
-    # if false, we need shape 
     if trim_front:
       self.X_input = kwargs.get('X_input')
     else:
@@ -29,14 +36,17 @@ class ResNet():
 
 
   def identity_block(self, X, filters, kernel_size, stage, block):
-    """ filters: list of 3 ints defining number of filters in each Conv2d layer 
+    """ X: input data/tensor
+        filters: list of 3 ints defining number of filters in each Conv2d layer 
         kernel_size: int defining the kernel_size of the middle Conv2d layer 
-        stage: int to name/describe which stage in the total network """
+        stage: name of stage of blocks in the total network (a descriptor)
+        block: name of block within stage (a descriptor)
+    """
     X_shortcut = X
     F1, F2, F3 = filters
     ks = (kernel_size, kernel_size)
-    conv_name = 'Conv_Stage_' + str(stage) + '_' + str(block)
-    BN_name = 'BN_Stage_' + str(stage) + '_' + str(block)
+    conv_name = 'Conv_Stage_' + str(stage) + '_Block' + str(block)
+    BN_name = 'BN_Stage_' + str(stage) + '_Block' + str(block)
 
     # first block
     X = Conv2D(filters = F1, kernel_size = (1,1), strides = (1,1), padding = 'valid', 
@@ -60,14 +70,17 @@ class ResNet():
     return X
 
   def convolutional_block(self, X, filters, kernel_size, stage, block, stride = 2):
-    """ filters: list of 3 ints defining number of filters in each Conv2d layer 
-    kernel_size: int defining the kernel_size of the middle Conv2d layer 
-    stage: int to name/describe which stage in the total network """
+    """ X: input data/tensor
+        filters: list of 3 ints defining number of filters in each Conv2d layer 
+        kernel_size: int defining the kernel_size of the middle Conv2d layer 
+        stage: name of stage of blocks in the total network (a descriptor)
+        block: name of block within stage (a descriptor)
+    """
     X_shortcut = X
     F1, F2, F3 = filters
     ks = (kernel_size, kernel_size)
-    conv_name = 'Conv_Stage_' + str(stage) + '_' + str(block)
-    BN_name = 'BN_Stage_' + str(stage) + '_' + str(block)
+    conv_name = 'Conv_Stage_' + str(stage) + '_Block' + str(block)
+    BN_name = 'BN_Stage_' + str(stage) + '_Block' + str(block)
     s = stride
 
     # first block
@@ -96,14 +109,12 @@ class ResNet():
     X = relu(X)
     return X
 
-
-  # def resnet(self, input_shape = (32,32,1), classes = 5, save_img = False):
   def resnet(self):
-
-    """ Put together structure and depth of model here by 
-        stacking identity and convolutional layers """
-    # if self.trim_front:
-    #   X_input = X_input
+    """ Main Function of ResNet
+        Puts together structure and depth of model here by stacking identity and convolutional layers 
+        Add more stages/blocks at will 
+    """
+    # X_input = X_input
     X = ZeroPadding2D((3, 3))(self.X_input)
 
     # stage 1
@@ -116,16 +127,12 @@ class ResNet():
     X = MaxPooling2D(pool_size = (3, 3), strides = (2, 2))(X)
 
     # stage 2
-    X = self.convolutional_block(X = X, 
-      filters=[64, 64, 256], 
-      kernel_size=3, 
-      stage=2, stride=1, block = 'block_A')
-    X = self.identity_block(X = X, 
-      filters = [64, 64, 256], 
-      kernel_size = 3, stage = 2, block = 'block_B')
-    X = self.identity_block(X = X, 
-      filters = [64, 64, 256], 
-      kernel_size = 3, stage = 2, block = 'block_C')
+    X = self.convolutional_block(X = X, filters=[64, 64, 256], kernel_size=3, stride=1,
+      stage = 2, block = 'A')
+    X = self.identity_block(X = X, filters = [64, 64, 256], kernel_size = 3, 
+      stage = 2, block = 'B')
+    X = self.identity_block(X = X, filters = [64, 64, 256], kernel_size = 3, 
+      stage = 2, block = 'C')
 
     if self.trim_end: 
       return X
@@ -156,15 +163,5 @@ if __name__ == '__main__':
 
   resnet = ResNet(input_shape = (32,32,1), num_classes = 5)
   model = resnet.resnet()
-  
-
-  # create model object plus train, predict, and evaluate
-  # model_object = Multi_Modal(data_builder)
-  # model_object.compile_multi_modal_network(5, True, True)
-  # model_object.train_model(1)
-  # model_object.predict_model()
-  # model_object.get_model_metrics()
-
-
 
 

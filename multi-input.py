@@ -35,13 +35,14 @@ class Multi_Modal():
     image_inputs = keras.Input(
       shape=(32,32,1), 
       name = 'image_Inputs')
-
     audio_inputs = keras.Input(
       shape=(128,1), 
       name = 'audio_Inputs')
     
+    # create ResNet portion of multi-input model
     resnet_model = ResNet(trim_front = True, trim_end = True, X_input = image_inputs)
     x_image = resnet_model.resnet()
+
     # send audio to 1D conv layers
     x_audio = self.convAudioNet(audio_inputs)
 
@@ -154,10 +155,7 @@ if __name__ == '__main__':
   data_builder.fit_multi_hot_encoder(
     class_labels = np.array([[170],[1454],[709],[1057],[1308]]))
 
-  # create model object plus train, predict, and evaluate
-  # get a ResNet 
-  # resnet = ResNet(trim_front = True, trim_end = True)
-  # sys.exit()
+  # Create multi-modal object
   model_object = Multi_Modal(data_builder)
   model_object.compile_multi_modal_network(True, True)
   model_object.train_model(1)
