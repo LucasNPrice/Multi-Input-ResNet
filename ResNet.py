@@ -129,7 +129,7 @@ class ResNet():
       stage = 2, block = 'A')
     X = self.identity_block_1D(X = X, filters = [32, 32, 126], kernel_size = 3, 
       stage = 2, block = 'B')
-    X = self.identity_block(X = X, filters = [32, 32, 126], kernel_size = 3, 
+    X = self.identity_block_1D(X = X, filters = [32, 32, 126], kernel_size = 3, 
       stage = 2, block = 'C')
 
     if self.trim_end: 

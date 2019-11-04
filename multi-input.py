@@ -11,17 +11,9 @@ import sys
 from sklearn.metrics import multilabel_confusion_matrix
 
 class Multi_Modal():
+
   def __init__(self, data_builder_object):
     self.data_builder = data_builder
-
-  def convAudioNet(self, inputs):
-    conv1D_layer = layers.Conv1D(
-      filters = 32,
-      kernel_size = 3,
-      activation = 'relu')
-    x = conv1D_layer(inputs)
-    x = BatchNormalization()(x)
-    return x
 
   def compile_multi_modal_network(self, model_summary = True, save_img = False):
     # define input shapes
@@ -32,31 +24,35 @@ class Multi_Modal():
       shape=(128,1), 
       name = 'audio_Inputs')
     
-    # create ResNet portion of multi-input model
+    # create 2D ResNet for image data 
     resnet2D = ResNet(trim_front = True, trim_end = True, X_input = image_inputs)
     x_image = resnet2D.ResNet2D()
 
-    # send audio to 1D conv layers - future updates 
+    # create 1D ResNet for audio data 
     resnet1D = ResNet(trim_front = True, trim_end = True, X_input = audio_inputs)
     x_audio = resnet1D.ResNet1D()
 
-    # x_audio = self.convAudioNet(audio_inputs)
-
-    # flatten for dense layer
+    # get image and audio to contain equal number of units (50/50)
     x_image = Flatten()(x_image)
-    x_audio = Flatten()(x_audio)
-
-    # get image and audio to equal number of units 50/50
     x_image = BatchNormalization()(x_image)
     x_image = Dense(units = 1000, activation = 'relu', name = 'dense_image')(x_image)
-    x_audio = Dense(units = 1000, activation = 'relu', name = 'dense_audio')(x_audio)
     x_image = BatchNormalization()(x_image)
+    x_audio = Flatten()(x_audio)
+    x_audio = Dense(units = 1000, activation = 'relu', name = 'dense_audio')(x_audio)
     x_audio = BatchNormalization()(x_audio)
 
     # concatenate inputs 
     x = concatenate([x_image, x_audio])
     x = Dense(units = x.shape[1], activation = 'relu', name = 'Merged_dense_1')(x)
     x = Dense(units = 1000, activation = 'relu', name = 'Merged_dense_2')(x)
+    x = BatchNormalization()(x)
+
+    # # send merged features into 3rd ResNet
+    # x = tf.expand_dims(x, -1)
+    # merged_resnet = ResNet(trim_front = True, trim_end = True, X_input = x)
+    # x = merged_resnet.ResNet1D()
+    # print(x)
+    # input()
     x = Dense(100, activation='relu', name='Merged_Dense_3')(x)
     
     output_layer = Dense(units = 5, activation='sigmoid', 
@@ -70,7 +66,6 @@ class Multi_Modal():
       self.model.summary()
     if save_img:
       keras.utils.plot_model(self.model, 'multi_model.png')
-    # return model
 
 
   def train_model(self, epochs, learning_rate = 0.0005):
@@ -160,7 +155,7 @@ if __name__ == '__main__':
   # Create multi-modal object
   model_object = Multi_Modal(data_builder)
   model_object.compile_multi_modal_network(True, True)
-  model_object.train_model(epochs = 5, learning_rate = 0.0001)
+  model_object.train_model(epochs = 5, learning_rate = 0.00001)
   model_object.predict_model()
   print(model_object.predictions)
   model_object.get_model_metrics()
