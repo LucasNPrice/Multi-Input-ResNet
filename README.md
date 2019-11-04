@@ -13,4 +13,6 @@
 **segmented_data_builder.py**
   - builds TensorFlow Dataset for dynamic loading of data for models 
   - includes embdedding/multi-hot methods for label transformations 
+  
+  ![Image description](multi_model.png)
 
