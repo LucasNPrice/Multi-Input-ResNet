@@ -7,14 +7,18 @@ from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import concatenate
-from ResNet import ResNet
-from segmented_data_builder import tf_Data_Builder
 from tqdm import tqdm
 import os
 import numpy as np
 import sys
 from sklearn.metrics import multilabel_confusion_matrix
 import copy
+
+from ResNet import ResNet
+from segmented_data_builder import tf_Data_Builder
+from focal_loss import FocalLoss
+
+
 
 class Multi_Modal():
 
@@ -79,11 +83,11 @@ class Multi_Modal():
       keras.utils.plot_model(self.model, 'multi_model.png')
 
 
-  def train_model(self, epochs, learning_rate = 0.001, predict_after_epoch = False):
+  def train_model(self, epochs, loss_function, learning_rate = 0.001, predict_after_epoch = False):
     # model = self.compile_multi_modal_network(model_summary = False, save_img = False)
     print('\nTraining Model')
     optimizer = tf.keras.optimizers.Adam(learning_rate)
-    loss_function = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+    # loss_function = tf.keras.losses.BinaryCrossentropy(from_logits=True)
     loss_history = []
     for epoch in range(epochs):
       epoch_loss = []
@@ -177,15 +181,6 @@ class Multi_Modal():
       print('F1 Score: {}'.format(round(f1_score,3)))
 
 
-  def get_train_labels(self):
-    """ mainly used to analyze class imbalance (np.sum(self.train_labels, 0)) """
-    self.train_labels = []
-    for batch, (image, audio, labels) in enumerate(self.data_builder.train_dataset):
-      labels = tf.sparse.to_dense(labels)
-      self.train_labels.extend(np.array(self.data_builder.multi_hot_classes(labels)))
-    self.train_labels = np.array(self.train_labels)
-
-
   def train_on_N_examples(self, N, epochs, learning_rate=0.001):
     """ N = num_examples; max N is batch_size """
     print('Training on {} examples'.format(N))
@@ -224,6 +219,17 @@ class Multi_Modal():
       print('----------------------------------------')
       input()
 
+  def get_train_labels(self):
+    """ mainly used to analyze class imbalance (np.sum(self.train_labels, 0)) """
+    self.train_labels = []
+    for batch, (image, audio, labels) in enumerate(self.data_builder.train_dataset):
+      labels = tf.sparse.to_dense(labels)
+      self.train_labels.extend(np.array(self.data_builder.multi_hot_classes(labels)))
+    self.train_labels = np.array(self.train_labels)
+
+  def get_label_ratios(self):
+    labels = self.get_train_labels()
+    self.label_ratios = np.sum(model.train_labels,axis=0)/len(model.train_labels)
 
 if __name__ == '__main__':
   
@@ -235,6 +241,7 @@ if __name__ == '__main__':
 
   # build dataset
   data_builder = tf_Data_Builder()
+  # currently only classifying 5 labels as seen in class_labels
   data_builder.fit_multi_hot_encoder(
     class_labels = np.array([[170],[1454],[709],[1057],[1308]]))
   data_builder.create_train_test_dataset(
@@ -242,13 +249,20 @@ if __name__ == '__main__':
     test_tf_datafiles = testFiles, 
     batch_size = 32)  
 
-  # build, train, test, evaluate model 
+  # build and compile model train, test, evaluate model 
   model = Multi_Modal(data_builder)
   model.compile_multi_modal_network(False, True)
+  # get class/label ratios for use as alpha in Focal Loss
+  model.get_label_ratios()
+  # create Focal Loss object to pass to training
+  focal_loss = FocalLoss(alpha=model.label_ratios, class_proportions=True)
+  # train model, test, evaluate model 
   model.train_model(
-    epochs = 100, 
+    epochs = 100,  
+    loss_function = focal_loss,
     learning_rate = 0.00001, 
     predict_after_epoch = True)
+  model.predict_model()
   model.get_model_metrics(
     true_labels = self.true_labels, 
     predicted_labels = self.predictions)
