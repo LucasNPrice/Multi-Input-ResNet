@@ -1,7 +1,7 @@
 # Multi-Input ResNet
 
 **ResNet.py**
-  - residual network class for 2D image data 
+  - residual network class for 2D image data and 1D (audio) data 
   - can be used to train model end to end or for transfer methods with head/tail layers removed. 
 
 **multi-input.py**
