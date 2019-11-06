@@ -13,10 +13,10 @@
   - includes embdedding/multi-hot methods for label transformations 
   
 **focal_loss.py**
-    - multi-class focal loss function 
-    - alpha is an array where each element is the weighting factor for that specific class 
-    - for example, if classifying 5 different classes then alpha should be a (1,5) array of weights 
-    - dramatic increase in performance over Binary Crosstropy 
+  - multi-class focal loss function 
+  - alpha is an array where each element is the weighting factor for that specific class 
+  - for example, if classifying 5 different classes then alpha should be a (1,5) array of weights 
+  - dramatic increase in performance over Binary Crosstropy 
   
   ## Network Graph
 <!--  ![Image description](multi_model.png =500x2000)-->
