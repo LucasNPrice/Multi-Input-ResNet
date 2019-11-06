@@ -14,8 +14,8 @@
   
 **focal_loss.py**
     - multi-class focal loss function 
-    - in this case, alpha is an array where each element is the weighting factor for that specific class
-        - for example, if classifying 5 different classes then alpha should be a (5,1) array of weights 
+    - alpha is an array where each element is the weighting factor for that specific class 
+    - for example, if classifying 5 different classes then alpha should be a (1,5) array of weights 
     - dramatic increase in performance over Binary Crosstropy 
   
   ## Network Graph
