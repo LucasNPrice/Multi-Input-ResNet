@@ -49,19 +49,19 @@ class ResNet():
 
     # first block
     X = Conv1D(filters = F1, kernel_size = 1, strides = 1, padding = 'valid', 
-      name = conv_name + '_a')(X)
+      kernel_initializer='glorot_uniform', name = conv_name + '_a')(X)
     X = BatchNormalization(axis = -1, name = BN_name + '_a')(X)
     X = relu(X)
 
     # middle block 
     X = Conv1D(filters = F2, kernel_size = kernel_size, strides = 1, padding = 'same', 
-      name = conv_name + '_b')(X)
+      kernel_initializer='glorot_uniform', name = conv_name + '_b')(X)
     X = BatchNormalization(axis = -1, name = BN_name + '_b')(X)
     X = relu(X)
 
     # last block
     X = Conv1D(filters = F3, kernel_size = 1, strides = 1, padding = 'valid', 
-      name = conv_name + '_c')(X)
+      kernel_initializer='glorot_uniform', name = conv_name + '_c')(X)
     X = BatchNormalization(axis = -1, name = BN_name + '_c')(X)
 
     X = Add()([X, X_shortcut])
@@ -82,24 +82,24 @@ class ResNet():
 
     # first block
     X = Conv1D(filters = F1, kernel_size = 1, strides = stride, padding = 'valid', 
-      name = conv_name + '_a')(X)
+      kernel_initializer='glorot_uniform', name = conv_name + '_a')(X)
     X = BatchNormalization(axis = -1, name = BN_name + '_a')(X)
     X = relu(X)
 
     # middle block 
     X = Conv1D(filters = F2, kernel_size = kernel_size, strides = 1, padding = 'same', 
-      name = conv_name + '_b')(X)
+      kernel_initializer='glorot_uniform', name = conv_name + '_b')(X)
     X = BatchNormalization(axis = -1, name = BN_name + '_b')(X)
     X = relu(X)
 
     # last block
     X = Conv1D(filters = F3, kernel_size = 1, strides = 1, padding = 'valid', 
-      name = conv_name + '_c')(X)
+      kernel_initializer='glorot_uniform', name = conv_name + '_c')(X)
     X = BatchNormalization(axis = -1, name = BN_name + '_c')(X)
 
     # shortcut path - ensure equal outut dimensions (F3)
     X_shortcut = Conv1D(filters = F3, kernel_size = 1, strides = stride, padding = 'valid', 
-      name = conv_name + '_shortcut')(X_shortcut)
+      kernel_initializer='glorot_uniform', name = conv_name + '_shortcut')(X_shortcut)
     X_shortcut = BatchNormalization(axis = -1, name = BN_name + '_shortcut')(X_shortcut)
 
     X = Add()([X, X_shortcut])
@@ -119,18 +119,44 @@ class ResNet():
     X = Conv1D(filters = 32, 
       kernel_size = 7, 
       strides=2, 
+      kernel_initializer='glorot_uniform',
       name = 'Conv1D_Stage_1')(X)
     X = BatchNormalization(name = 'BN1D_Stage_1')(X)
     X = relu(X)
     X = MaxPooling1D(pool_size = 3, strides = 2)(X)
 
     # stage 2
-    X = self.convolutional_block_1D(X = X, filters=[32, 32, 126], kernel_size=3, stride=1,
-      stage = 2, block = 'A')
+    X = self.convolutional_block_1D(X = X, filters=[32, 32, 126], kernel_size=3, 
+      stride=1, stage = 2, block = 'A')
     X = self.identity_block_1D(X = X, filters = [32, 32, 126], kernel_size = 3, 
       stage = 2, block = 'B')
     X = self.identity_block_1D(X = X, filters = [32, 32, 126], kernel_size = 3, 
       stage = 2, block = 'C')
+
+
+    # stage 3
+    X = self.convolutional_block_1D(X = X, filters = [64, 64, 256], kernel_size = 3, 
+      stride = 2, stage = 3, block = 'A')
+    X = self.identity_block_1D(X = X, filters = [64, 64, 256], kernel_size = 3, 
+      stage = 3, block = 'B')
+    X = self.identity_block_1D(X = X, filters = [64, 64, 256], kernel_size = 3, 
+      stage = 3, block = 'C')    
+    X = self.identity_block_1D(X = X, filters = [64, 64, 256], kernel_size = 3, 
+      stage = 3, block = 'D')
+
+    # stage 4
+    X = self.convolutional_block_1D(X = X, filters=[128, 128, 512], kernel_size=3, 
+      stride = 2, stage = 4, block = 'A')
+    X = self.identity_block_1D(X = X, filters = [128, 128, 512], kernel_size = 3, 
+      stage = 4, block = 'B')
+    X = self.identity_block_1D(X = X, filters = [128, 128, 512], kernel_size = 3, 
+      stage = 4, block = 'C')    
+    X = self.identity_block_1D(X = X, filters = [128, 128, 512], kernel_size = 3, 
+      stage = 4, block = 'D')
+    X = self.identity_block_1D(X = X, filters = [128, 128, 512], kernel_size = 3, 
+      stage = 4, block = 'E')    
+    X = self.identity_block_1D(X = X, filters = [128, 128, 512], kernel_size = 3, 
+      stage = 4, block = 'F')
 
     if self.trim_end: 
       return X
@@ -159,19 +185,19 @@ class ResNet():
 
     # first block
     X = Conv2D(filters = F1, kernel_size = (1,1), strides = (1,1), padding = 'valid', 
-      name = conv_name + '_a')(X)
+      kernel_initializer='glorot_uniform', name = conv_name + '_a')(X)
     X = BatchNormalization(axis = -1, name = BN_name + '_a')(X)
     X = relu(X)
     
     # middle block 
     X = Conv2D(filters = F2, kernel_size = ks, strides = (1,1), padding = 'same', 
-      name = conv_name + '_b')(X)
+      kernel_initializer='glorot_uniform', name = conv_name + '_b')(X)
     X = BatchNormalization(axis = -1, name = BN_name + '_b')(X)
     X = relu(X)
 
     # last block
     X = Conv2D(filters = F3, kernel_size = (1,1), strides = (1,1), padding = 'valid', 
-      name = conv_name + '_c')(X)
+      kernel_initializer='glorot_uniform', name = conv_name + '_c')(X)
     X = BatchNormalization(axis = -1, name = BN_name + '_c')(X)
 
     X = Add()([X, X_shortcut])
@@ -194,24 +220,24 @@ class ResNet():
 
     # first block
     X = Conv2D(filters = F1, kernel_size = (1,1), strides = (s,s), padding = 'valid', 
-      name = conv_name + '_a')(X)
+      kernel_initializer='glorot_uniform', name = conv_name + '_a')(X)
     X = BatchNormalization(axis = -1, name = BN_name + '_a')(X)
     X = relu(X)
 
     # middle block 
     X = Conv2D(filters = F2, kernel_size = ks, strides = (1,1), padding = 'same', 
-      name = conv_name + '_b')(X)
+      kernel_initializer='glorot_uniform', name = conv_name + '_b')(X)
     X = BatchNormalization(axis = -1, name = BN_name + '_b')(X)
     X = relu(X)
 
     # last block
     X = Conv2D(filters = F3, kernel_size = (1,1), strides = (1,1), padding = 'valid', 
-      name = conv_name + '_c')(X)
+      kernel_initializer='glorot_uniform', name = conv_name + '_c')(X)
     X = BatchNormalization(axis = -1, name = BN_name + '_c')(X)
 
     # shortcut path - ensure equal outut dimensions (F3)
     X_shortcut = Conv2D(filters = F3, kernel_size = (1, 1), strides = (s,s), padding = 'valid', 
-      name = conv_name + '_shortcut')(X_shortcut)
+      kernel_initializer='glorot_uniform', name = conv_name + '_shortcut')(X_shortcut)
     X_shortcut = BatchNormalization(axis = -1, name = BN_name + '_shortcut')(X_shortcut)
 
     X = Add()([X, X_shortcut])
@@ -227,21 +253,46 @@ class ResNet():
     X = ZeroPadding2D((3, 3))(self.X_input)
 
     # stage 1
-    X = Conv2D(filters = 64, 
+    X = Conv2D(filters = 32, 
       kernel_size = (7, 7), 
       strides=(2, 2), 
+      kernel_initializer='glorot_uniform', 
       name = 'Conv2D_Stage_1')(X)
     X = BatchNormalization(name = 'BN2D_Stage_1')(X)
     X = relu(X)
     X = MaxPooling2D(pool_size = (3, 3), strides = (2, 2))(X)
 
     # stage 2
-    X = self.convolutional_block_2D(X = X, filters=[64, 64, 256], kernel_size=3, stride=1,
-      stage = 2, block = 'A')
-    X = self.identity_block_2D(X = X, filters = [64, 64, 256], kernel_size = 3, 
+    X = self.convolutional_block_2D(X = X, filters=[32, 32, 126], kernel_size=3, 
+      stride=1, stage = 2, block = 'A')
+    X = self.identity_block_2D(X = X, filters = [32, 32, 126], kernel_size = 3, 
       stage = 2, block = 'B')
-    X = self.identity_block_2D(X = X, filters = [64, 64, 256], kernel_size = 3, 
+    X = self.identity_block_2D(X = X, filters = [32, 32, 126], kernel_size = 3, 
       stage = 2, block = 'C')
+
+    # stage 3
+    X = self.convolutional_block_2D(X = X, filters=[64, 64, 256], kernel_size=3, 
+      stride=2, stage = 3, block = 'A')
+    X = self.identity_block_2D(X = X, filters = [64, 64, 256], kernel_size = 3, 
+      stage = 3, block = 'B')
+    X = self.identity_block_2D(X = X, filters = [64, 64, 256], kernel_size = 3, 
+      stage = 3, block = 'C')
+    X = self.identity_block_2D(X = X, filters = [64, 64, 256], kernel_size = 3, 
+      stage = 3, block = 'D')
+
+    # stage 4
+    X = self.convolutional_block_2D(X = X, filters=[128, 128, 512], kernel_size=3, 
+      stride=2, stage = 4, block = 'A')
+    X = self.identity_block_2D(X = X, filters =[128, 128, 512], kernel_size = 3, 
+      stage = 4, block = 'B')
+    X = self.identity_block_2D(X = X, filters =[128, 128, 512], kernel_size = 3, 
+      stage = 4, block = 'C')
+    X = self.identity_block_2D(X = X, filters =[128, 128, 512], kernel_size = 3, 
+      stage = 4, block = 'D')
+    X = self.identity_block_2D(X = X, filters =[128, 128, 512], kernel_size = 3, 
+      stage = 4, block = 'E')
+    X = self.identity_block_2D(X = X, filters =[128, 128, 512], kernel_size = 3, 
+      stage = 4, block = 'F')
 
     if self.trim_end: 
       return X
@@ -263,7 +314,7 @@ if __name__ == '__main__':
   trainFiles = [os.path.join(data_dir, file) for file in os.listdir(data_dir) if '.tfrecord' in file]
 
   # build dataset
-  data_builder = tf_Data_Builder()
+  tran_data_builder = tf_Data_Builder()
   data_builder.create_dataset(
     tf_datafiles = trainFiles, 
     batch_size = 32)
