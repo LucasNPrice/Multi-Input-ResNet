@@ -1,7 +1,5 @@
 import tensorflow as tf
 import keras.backend as K
-# from tensorflow import math
-# from tensorflow import keras 
 import numpy as np
 
 class FocalLoss():
@@ -10,7 +8,7 @@ class FocalLoss():
       self.alpha = 1-alpha
     else:
       self.alpha = alpha
-    self.gamma = 2.0
+    self.gamma = gamma
 
   def __call__(self, y_true, y_pred):
     y_pred = tf.clip_by_value(
