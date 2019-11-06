@@ -107,7 +107,7 @@ class ResNet():
     return X
 
 
-  def ResNet1D(self):
+  def ResNet1D(self, save_img=False):
     """ Main Function of ResNet
         Puts together structure and depth of model here by stacking identity and convolutional layers 
         Add more stages/blocks at will 
@@ -167,7 +167,8 @@ class ResNet():
       
       # create model
       model = Model(inputs = self.X_input, outputs = X, name='myResNet')
-      keras.utils.plot_model(model, 'ResNet.png')
+      if save_img:
+        keras.utils.plot_model(model, 'ResNet1D.png')
       return model
 
   def identity_block_2D(self, X, filters, kernel_size, stage, block):
@@ -244,7 +245,7 @@ class ResNet():
     X = relu(X)
     return X
 
-  def ResNet2D(self):
+  def ResNet2D(self, save_img=False):
     """ Main Function of ResNet
         Puts together structure and depth of model here by stacking identity and convolutional layers 
         Add more stages/blocks at will 
@@ -303,7 +304,8 @@ class ResNet():
       
       # create model
       model = Model(inputs = self.X_input, outputs = X, name='myResNet')
-      keras.utils.plot_model(model, 'ResNet.png')
+      if save_img:
+        keras.utils.plot_model(model, 'ResNet2D.png')
       return model
 
 
