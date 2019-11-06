@@ -1,6 +1,4 @@
-# multi-modal
-
-## Multi-Input ResNet
+# Multi-Input ResNet
 
 **ResNet.py**
   - residual network class for 2D image data 
