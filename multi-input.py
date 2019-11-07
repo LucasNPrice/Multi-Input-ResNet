@@ -40,22 +40,11 @@ class MultiModal():
       model = kwargs['pretraned_model']
       self.model = tf.keras.models.load_model(model)
       self.model.summary()
-    # elif 'model_json' in kwargs.keys():
-    #   json_model = kwargs['model_json']
-    #   json_file = open(json_model, 'r')
-    #   self.model = json_file.read()
-    #   json_file.close()
-    # if 'model_weights' in kwargs['model_weights']:
-    #   assert kwargs['model_json'] not None:
-
-
-    # loaded_model = model_from_json(loaded_model_json)
-    # load weights into new model
 
   def compile_multi_modal_network(self, model_summary=True, 
                                   save_img=False, 
                                   save_json=False, 
-                                  json_file_name='multi_model.json'):
+                                  json_file_name='multi_modal_model.json'):
 
     """ Builds and compiles a multi-input residual network of class ResNet. 
 
@@ -118,7 +107,7 @@ class MultiModal():
                   learning_rate=0.001, 
                   predict_after_epoch=False, 
                   save_weights=False, 
-                  weight_file_name='multi-model.h5', 
+                  weight_file_name='multi_modal_model.h5', 
                   assert_weight_update=False):
 
     """ Trains a multi-input model of class ResNet. 
@@ -250,23 +239,23 @@ if __name__ == '__main__':
                                          test_tf_datafiles=testFiles, 
                                          batch_size=32)  
 
-  # """ build, compile, train, test, and evaluate new model """
-  # model = MultiModal(data_builder)
-  # model.compile_multi_modal_network(model_summary=False, save_img=True, save_json=True)
-  # model.get_label_ratios()
-  # focal_loss = FocalLoss(alpha=model.label_ratios, class_proportions=True)
-  # model.train_model(epochs =100,  
-  #                   loss_function=focal_loss,
-  #                   learning_rate=0.00001, 
-  #                   predict_after_epoch=True,
-  #                   save_weights=True,
-  #                   assert_weight_update=True)
-  # model.predict_model()
-  # metrics = Metrics(self.true_labels, self.predictions)
+  """ build, compile, train, test, and evaluate new model """
+  model = MultiModal(data_builder)
+  model.compile_multi_modal_network(model_summary=False, save_img=True, save_json=True)
+  model.get_label_ratios()
+  focal_loss = FocalLoss(alpha=model.label_ratios, class_proportions=True)
+  model.train_model(epochs =100,  
+                    loss_function=focal_loss,
+                    learning_rate=0.00001, 
+                    predict_after_epoch=True,
+                    save_weights=True,
+                    assert_weight_update=True)
+  model.predict_model()
+  metrics = Metrics(self.true_labels, self.predictions)
 
-  # sys.exit()
+  sys.exit()
   """ Run with pretrained model """
-  transfer_model = MultiModal(data_builder, pretraned_model='multi_model.h5')
+  transfer_model = MultiModal(data_builder, pretraned_model='multi_modal_model.h5')
   transfer_model.compile_multi_modal_network(model_summary=False, save_img=True, save_json=True)
   transfer_model.get_label_ratios()
   focal_loss = FocalLoss(alpha=transfer_model.label_ratios, class_proportions=True)
