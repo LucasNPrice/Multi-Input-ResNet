@@ -21,13 +21,13 @@ from focal_loss import FocalLoss
 from metrics import Metrics
 
 
-class Multi_Modal():
+class MultiModal():
 
   def __init__(self, data_builder_object, **kwargs):
 
-    """ Creates an object of class Multi-Modal.
+    """ Creates an object of class MultiModal.
 
-    Must be called with tf_Data_Builder object containng a tensorflow Dataset object. 
+    Must be called with tfDataBuilder object containng a tensorflow Dataset object. 
 
     Args:
       data_builder_object: Object of class tf_Data_Builder. 
@@ -251,7 +251,7 @@ if __name__ == '__main__':
                                          batch_size=32)  
 
   # """ build, compile, train, test, and evaluate new model """
-  # model = Multi_Modal(data_builder)
+  # model = MultiModal(data_builder)
   # model.compile_multi_modal_network(model_summary=False, save_img=True, save_json=True)
   # model.get_label_ratios()
   # focal_loss = FocalLoss(alpha=model.label_ratios, class_proportions=True)
@@ -266,7 +266,7 @@ if __name__ == '__main__':
 
   # sys.exit()
   """ Run with pretrained model """
-  transfer_model = Multi_Modal(data_builder, pretraned_model='multi_model.h5')
+  transfer_model = MultiModal(data_builder, pretraned_model='multi_model.h5')
   transfer_model.compile_multi_modal_network(model_summary=False, save_img=True, save_json=True)
   transfer_model.get_label_ratios()
   focal_loss = FocalLoss(alpha=transfer_model.label_ratios, class_proportions=True)
