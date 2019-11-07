@@ -17,6 +17,7 @@ import copy
 from ResNet import ResNet
 from segmented_data_builder import tf_Data_Builder
 from focal_loss import FocalLoss
+from metrics import Metrics
 
 
 
@@ -26,7 +27,7 @@ class Multi_Modal():
     self.data_builder = data_builder
     self.batch_size = self.data_builder.batch_size
 
-  def compile_multi_modal_network(self, model_summary = True, save_img = False):
+  def compile_multi_modal_network(self, model_summary = True, save_img = False, save_model = False):
     # define input shapes
     image_inputs = Input(
       shape=(32,32,1), 
@@ -35,11 +36,9 @@ class Multi_Modal():
       shape=(128,1), 
       name = 'audio_Inputs')
     
-    # create 2D ResNet for image data 
+    # create 2D ResNet for image data and 1D ResNet for audio data 
     resnet2D = ResNet(trim_front = True, trim_end = True, X_input = image_inputs)
     x_image = resnet2D.ResNet2D()
-
-    # create 1D ResNet for audio data 
     resnet1D = ResNet(trim_front = True, trim_end = True, X_input = audio_inputs)
     x_audio = resnet1D.ResNet1D()
 
@@ -68,31 +67,32 @@ class Multi_Modal():
     # print(x)
     # input()
     x = Dense(100, activation='relu', name='Merged_Dense_3')(x)
-    
-    output_layer = Dense(units = 5, activation='sigmoid', 
-      name = 'output_Layer')
+    output_layer = Dense(units = 5, activation='sigmoid', name = 'output_Layer')
     outputs = output_layer(x)
-
-    self.model = Model(
-      inputs=[image_inputs, audio_inputs], 
-      outputs=outputs)
+    self.model = Model(inputs=[image_inputs, audio_inputs], outputs=outputs)
 
     if model_summary:
       self.model.summary()
     if save_img:
       keras.utils.plot_model(self.model, 'multi_model.png')
+    if save_model:
+      self.model.save('multi_model.h5')
 
 
-  def train_model(self, epochs, loss_function, learning_rate = 0.001, predict_after_epoch = False):
-    # model = self.compile_multi_modal_network(model_summary = False, save_img = False)
+  def train_model(self, epochs, loss_function, learning_rate=0.001, 
+    predict_after_epoch=False, save_weights=False):
+
     print('\nTraining Model')
     optimizer = tf.keras.optimizers.Adam(learning_rate)
-    # loss_function = tf.keras.losses.BinaryCrossentropy(from_logits=True)
     loss_history = []
+
+    if predict_after_epoch:
+      self.F1_history = []
+
     for epoch in range(epochs):
       epoch_loss = []
-      with tqdm(total = int(self.data_builder.train_size//self.batch_size)) as pbar: 
-        # var_list_fn = lambda: self.model.trainable_weights
+      num_batches = int(self.data_builder.train_size//self.batch_size)
+      with tqdm(total = num_batches) as pbar: 
         for batch, (images, audio, labels) in enumerate(self.data_builder.train_dataset):
           labels = tf.sparse.to_dense(labels)
           multi_hotted_labels = self.data_builder.multi_hot_classes(labels)
@@ -103,7 +103,6 @@ class Multi_Modal():
             loss = loss_function(y_true = multi_hotted_labels, y_pred = logits)
             epoch_loss.append(loss)
             loss_history.append(loss)
-
           before_weights = copy.deepcopy(self.model.trainable_weights)
           gradients = tape.gradient(target = loss, sources = self.model.trainable_weights)
           optimizer.apply_gradients(zip(gradients, self.model.trainable_weights))
@@ -116,30 +115,35 @@ class Multi_Modal():
               print('No weight update at - epoch {} batch {} -'.format(epoch+1,batch))
               no_update = True
               break
-
             # assert any(np.array(tf.not_equal(a, b)).flatten())
           if batch == 0 or batch % 100 == 0:
             print('Batch {} loss: {}'.format(batch, float(loss)))
           pbar.update(1)
-
       avg_loss_on_epoch = np.mean(epoch_loss)
       print('Epoch {} avg. training loss = {}'.format(epoch+1,float(avg_loss_on_epoch)))
       print('Epoch {} final batch loss = {}'.format(epoch+1,float(loss)))
 
       if predict_after_epoch:
         self.predict_model()
+        metrics = Metrics(self.true_labels, self.predictions)
+        F1 = metrics.get_F1(return_metric=True)
+        self.F1_history.append(F1)
+        validation_loss = loss_function(y_true = self.true_labels, y_pred = self.predictions)
         print(np.sum(self.predictions, axis = 0))
-        self.get_model_metrics(
-          true_labels = self.true_labels, 
-          predicted_labels = self.predictions, 
-          rates=False)
+        print('Epoch {} Validation F1: {}'.format(epoch+1,float(F1)))
+        print('Epoch {} Validation Loss: {}\n'.format(epoch+1,float(validation_loss)))
+        if save_weights:
+          # if F1 < F1_history[-2]:
+            # save weights here
+          pass
 
 
   def predict_model(self):
     print('\nPredicting Model')
     self.predictions = []
     self.true_labels = []
-    with tqdm(total = int(self.data_builder.test_size//self.batch_size)) as pbar: 
+    num_batches = int(self.data_builder.test_size//self.batch_size)
+    with tqdm(total = num_batches) as pbar: 
       for batch, (images, audio, labels) in enumerate(self.data_builder.test_dataset):
         img = tf.cast(images,tf.float32)
         aud = tf.cast(audio,tf.float32)
@@ -151,34 +155,6 @@ class Multi_Modal():
         pbar.update(1)
     self.predictions = np.array(self.predictions)
     self.true_labels = np.array(self.true_labels)
-
-
-  def get_model_metrics(self, true_labels, predicted_labels, rates = True):
-    conf_mat = multilabel_confusion_matrix(
-      true_labels, 
-      predicted_labels)#.ravel()
-
-    conf_mat_sum = np.zeros((2,2))
-    for mat in conf_mat:
-      conf_mat_sum += mat
-    tn, fp, fn, tp = conf_mat_sum.flatten()
-
-    print('\ntp : ' + str(tp))
-    print('fp : ' + str(fp))
-    print('tn : ' + str(tn))
-    print('fn : ' + str(fn))
-
-    if rates:
-      tpr = tp / (tp + fn)
-      fpr = fp / (fp + tn)
-      p = tp / (tp + fp)
-      r = tp / (tp + fn)
-      precision = tp / (tp + fp)
-      recall = tp / (tp + fn)
-      f1_score = 2 * ((precision * recall) / (precision + recall))
-
-      print('\nPrecision: {} {}Recall: {}'.format(round(p,3), '\n', round(r,3)))
-      print('F1 Score: {}'.format(round(f1_score,3)))
 
 
   def train_on_N_examples(self, N, epochs, learning_rate=0.001):
@@ -231,6 +207,10 @@ class Multi_Modal():
     labels = self.get_train_labels()
     self.label_ratios = np.sum(model.train_labels,axis=0)/len(model.train_labels)
 
+
+
+
+
 if __name__ == '__main__':
   
   # set data path and files 
@@ -251,7 +231,7 @@ if __name__ == '__main__':
 
   # build and compile model train, test, evaluate model 
   model = Multi_Modal(data_builder)
-  model.compile_multi_modal_network(False, True)
+  model.compile_multi_modal_network(model_summary=False, save_img=True, save_model=True)
   # get class/label ratios for use as alpha in Focal Loss
   model.get_label_ratios()
   # create Focal Loss object to pass to training
@@ -263,21 +243,20 @@ if __name__ == '__main__':
     learning_rate = 0.00001, 
     predict_after_epoch = True)
   model.predict_model()
-  model.get_model_metrics(
-    true_labels = self.true_labels, 
-    predicted_labels = self.predictions)
-
+  metrics = Metrics(self.true_labels, self.predictions)
+  
   """
+  -----------------------------------------------------
   Label Imbalance 
+  -----------------------------------------------------
   Train-True
   print(np.sum(model_object.train_labels, axis = 0))
   [15333.  3578.  3012.  2105.  2219.] 
+  -----------------------------------------------------
   Test-True
   print(np.sum(model_object.true_labels, axis = 0))
   [2110.  494.  399.  275.  270.]
-  Test-Predicted
-  print(np.sum(model_object.predictions, axis = 0))
-  ...
+  -----------------------------------------------------
   """
 
 

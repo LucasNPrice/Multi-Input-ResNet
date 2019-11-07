@@ -32,7 +32,6 @@ class tf_Data_Builder():
     self.train_dataset = self.train_dataset.batch(self.batch_size, drop_remainder=True)
     self.test_dataset = self.test_dataset.batch(self.batch_size, drop_remainder=False)
 
-    # get dataset sizes ---- CONTINUE - NOT FINISHED
     self.train_size = self.get_dataset_size(self.train_dataset)
     self.test_size = self.get_dataset_size(self.test_dataset)
 
