@@ -5,21 +5,24 @@ import sys
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 
-class tf_Data_Builder():
+class tfDataBuilder():
 
   def __init__(self):
     pass
 
   def create_single_dataset(self, tf_datafiles, batch_size):
-    """ creates Dataset object to feed to network """
+
+    """ Creates Dataset object to feed to network """
+
     self.dataset = tf.data.TFRecordDataset(tf_datafiles)
-    self.dataset = self.dataset.map(self.__parse_function, num_parallel_calls=4)
-    # self.dataset = self.dataset.repeat()    
+    self.dataset = self.dataset.map(self.__parse_function, num_parallel_calls=4)   
     self.dataset = self.dataset.shuffle(len(tf_datafiles))
     self.dataset = self.dataset.batch(batch_size, drop_remainder=True)
 
   def create_train_test_dataset(self, train_tf_datafiles, test_tf_datafiles, batch_size):
-    """ creates Dataset object to feed to network """
+
+    """ Creates a train and test Dataset object to feed to network """
+
     self.batch_size = batch_size
     self.train_dataset = tf.data.TFRecordDataset(train_tf_datafiles)
     self.test_dataset = tf.data.TFRecordDataset(test_tf_datafiles)
@@ -36,7 +39,9 @@ class tf_Data_Builder():
     self.test_size = self.get_dataset_size(self.test_dataset)
 
   def __parse_function(self, raw_tfrecord):
-    """ builds data structure transformation pipeline """
+
+    """ Builds data structure transformation pipeline """
+
     features = {
       'id': tf.io.FixedLenFeature([],dtype=tf.string),
       'labels': tf.io.VarLenFeature(dtype=tf.int64),
@@ -44,9 +49,11 @@ class tf_Data_Builder():
       'audio': tf.io.FixedLenFeature([],dtype=tf.string),
       'rgb': tf.io.FixedLenFeature([],dtype=tf.string)
     }
+
     data = tf.io.parse_single_example(
       serialized = raw_tfrecord,
       features = features)
+
     IDs = data['id']
     frame = data['frame']
     labels = data['labels']
@@ -65,19 +72,21 @@ class tf_Data_Builder():
     images = tf.image.per_image_standardization(images)
 
     return images, audio, labels
-    return IDs, frame, labels, images, audio
+    # return IDs, frame, labels, images, audio
 
   def fit_multi_hot_encoder(self, class_labels):
-    """ fits one-hot encoder """
+
+    """ Fits one-hot encoder """
+
     self.class_labels = class_labels
     self.onehot_encoder = OneHotEncoder(sparse=False, categories='auto')
     self.onehot_encoder.fit(self.class_labels)
 
   def multi_hot_classes(self, labels):
-    """ 
-    transforms a tensor of variable length labels to a multi-hot array of labels 
-    labels: label array to transform
-    returns: multi-hot array representation of labels 
+
+    """ Transforms a tensor of variable length labels to a multi-hot array of labels.
+        labels: label array to transform.
+        returns: multi-hot array representation of labels.
     """
     labels = np.array(labels)
     onehot_labels = []
@@ -92,10 +101,14 @@ class tf_Data_Builder():
     return tf.cast(onehot_labels, tf.float64)
 
   def get_dataset_size(self, dataset):
+
+    """ Returns the number of examples in a Dataset object """
+    
     i = 0
     for batch, (image, audio, label) in enumerate(dataset):
       assert tf.shape(image)[0] == tf.shape(audio)[0] == tf.shape(label)[0]
       i += tf.shape(image)[0]
+      
     return i
 
 

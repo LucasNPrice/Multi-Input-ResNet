@@ -7,56 +7,88 @@ from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import concatenate
+from tensorflow.keras.models import model_from_json
 from tqdm import tqdm
+from tqdm import trange
 import os
 import numpy as np
 import sys
-from sklearn.metrics import multilabel_confusion_matrix
 import copy
 
 from ResNet import ResNet
-from segmented_data_builder import tf_Data_Builder
+from segmented_data_builder import tfDataBuilder
 from focal_loss import FocalLoss
 from metrics import Metrics
 
 
-
 class Multi_Modal():
 
-  def __init__(self, data_builder_object):
+  def __init__(self, data_builder_object, **kwargs):
+
+    """ Creates an object of class Multi-Modal.
+
+    Must be called with tf_Data_Builder object containng a tensorflow Dataset object. 
+
+    Args:
+      data_builder_object: Object of class tf_Data_Builder. 
+      pretrained_model: (Optional) pretrained multi-input model.  
+    """
+
     self.data_builder = data_builder
     self.batch_size = self.data_builder.batch_size
+    if 'pretraned_model' in kwargs.keys():
+      model = kwargs['pretraned_model']
+      self.model = tf.keras.models.load_model(model)
+      self.model.summary()
+    # elif 'model_json' in kwargs.keys():
+    #   json_model = kwargs['model_json']
+    #   json_file = open(json_model, 'r')
+    #   self.model = json_file.read()
+    #   json_file.close()
+    # if 'model_weights' in kwargs['model_weights']:
+    #   assert kwargs['model_json'] not None:
 
-  def compile_multi_modal_network(self, model_summary = True, save_img = False, save_model = False):
-    # define input shapes
-    image_inputs = Input(
-      shape=(32,32,1), 
-      name = 'image_Inputs')
-    audio_inputs = Input(
-      shape=(128,1), 
-      name = 'audio_Inputs')
+
+    # loaded_model = model_from_json(loaded_model_json)
+    # load weights into new model
+
+  def compile_multi_modal_network(self, model_summary=True, 
+                                  save_img=False, 
+                                  save_json=False, 
+                                  json_file_name='multi_model.json'):
+
+    """ Builds and compiles a multi-input residual network of class ResNet. 
+
+    Args:
+      model_summary: True to display model summary; boolean. 
+      save_img: True to save image of model architecture to .png file; boolean.
+      save_json: True to save model architecture to .json file format; boolean.
+      json_file_name: name of json file to write to. 
+    """ 
+
+    image_inputs = Input(shape=(32,32,1), 
+                         name = 'image_Inputs')
+    audio_inputs = Input(shape=(128,1), 
+                         name = 'audio_Inputs')
     
-    # create 2D ResNet for image data and 1D ResNet for audio data 
-    resnet2D = ResNet(trim_front = True, trim_end = True, X_input = image_inputs)
+    resnet2D = ResNet(trim_front=True, trim_end=True, X_input=image_inputs)
     x_image = resnet2D.ResNet2D()
-    resnet1D = ResNet(trim_front = True, trim_end = True, X_input = audio_inputs)
+    resnet1D = ResNet(trim_front=True, trim_end=True, X_input=audio_inputs)
     x_audio = resnet1D.ResNet1D()
 
-    # get image and audio to contain equal number of units (50/50)
     x_image = Flatten()(x_image)
     x_image = BatchNormalization()(x_image)
-    x_image = Dense(units = 1000, activation = 'relu', name = 'dense_image')(x_image)
+    x_image = Dense(units=1000, activation='relu', name='dense_image')(x_image)
     x_image = Dropout(0.2)(x_image)
     x_image = BatchNormalization()(x_image)
     x_audio = Flatten()(x_audio)
-    x_audio = Dense(units = 1000, activation = 'relu', name = 'dense_audio')(x_audio)
+    x_audio = Dense(units=1000, activation='relu', name='dense_audio')(x_audio)
     x_audio = Dropout(0.2)(x_audio)
     x_audio = BatchNormalization()(x_audio)
 
-    # # concatenate inputs 
     x = concatenate([x_image, x_audio])
-    x = Dense(units = x.shape[1], activation = 'relu', name = 'Merged_dense_1')(x)
-    x = Dense(units = 1000, activation = 'relu', name = 'Merged_dense_2')(x)
+    x = Dense(units=x.shape[1], activation='relu', name='Merged_dense_1')(x)
+    x = Dense(units=1000, activation='relu', name='Merged_dense_2')(x)
     x = Dropout(0.2)(x)
     x = BatchNormalization()(x)
 
@@ -67,7 +99,7 @@ class Multi_Modal():
     # print(x)
     # input()
     x = Dense(100, activation='relu', name='Merged_Dense_3')(x)
-    output_layer = Dense(units = 5, activation='sigmoid', name = 'output_Layer')
+    output_layer = Dense(units=5, activation='sigmoid', name='output_Layer')
     outputs = output_layer(x)
     self.model = Model(inputs=[image_inputs, audio_inputs], outputs=outputs)
 
@@ -75,52 +107,67 @@ class Multi_Modal():
       self.model.summary()
     if save_img:
       keras.utils.plot_model(self.model, 'multi_model.png')
-    if save_model:
-      self.model.save('multi_model.h5')
+    if save_json:
+      model_json = self.model.to_json()
+      with open(json_file_name, 'w') as json_file:
+        json_file.write(model_json)
+        json_file.close()
 
 
-  def train_model(self, epochs, loss_function, learning_rate=0.001, 
-    predict_after_epoch=False, save_weights=False):
+  def train_model(self, epochs, loss_function, 
+                  learning_rate=0.001, 
+                  predict_after_epoch=False, 
+                  save_weights=False, 
+                  weight_file_name='multi-model.h5', 
+                  assert_weight_update=False):
+
+    """ Trains a multi-input model of class ResNet. 
+
+    Args:
+      epochs: Number of epochs to train model. 
+      loss_function: Loss function to train model. 
+      learning_rate: Learning rate of loss function. 
+      predict_after_epoch: True to evaluate model (on new data) after each epoch; boolean. 
+      save_weights: True to save model weights to .h5 file format; currently only saves best weights as determined by F1 on validation data. 
+      weight_file_name: File name to save weights as. 
+      assert_weight_update: Assert that weights are updated after each batch. If true, and 
+        weights are equal to the weights prior to update, assertion is triggered and model stops training. 
+    """
 
     print('\nTraining Model')
     optimizer = tf.keras.optimizers.Adam(learning_rate)
-    loss_history = []
-
     if predict_after_epoch:
       self.F1_history = []
 
     for epoch in range(epochs):
-      epoch_loss = []
       num_batches = int(self.data_builder.train_size//self.batch_size)
-      with tqdm(total = num_batches) as pbar: 
+      with tqdm(total=num_batches) as pbar:
         for batch, (images, audio, labels) in enumerate(self.data_builder.train_dataset):
           labels = tf.sparse.to_dense(labels)
           multi_hotted_labels = self.data_builder.multi_hot_classes(labels)
+
           with tf.GradientTape() as tape:
             img = tf.cast(images,tf.float32)
             aud = tf.cast(audio,tf.float32)
             logits = self.model([img, aud])
-            loss = loss_function(y_true = multi_hotted_labels, y_pred = logits)
-            epoch_loss.append(loss)
-            loss_history.append(loss)
-          before_weights = copy.deepcopy(self.model.trainable_weights)
-          gradients = tape.gradient(target = loss, sources = self.model.trainable_weights)
+            loss = loss_function(y_true=multi_hotted_labels, y_pred=logits)
+
+          if assert_weight_update:
+            before_weights = copy.deepcopy(self.model.trainable_weights)
+
+          gradients = tape.gradient(target=loss, 
+                                    sources=self.model.trainable_weights)
           optimizer.apply_gradients(zip(gradients, self.model.trainable_weights))
-          after_weights = self.model.trainable_weights
-      
+
           # Unit-Test: check to make sure weights were updated
-          no_update = False
-          for b, a in zip(before_weights, after_weights):
-            if all(np.array(tf.equal(a, b)).flatten()):
-              print('No weight update at - epoch {} batch {} -'.format(epoch+1,batch))
-              no_update = True
-              break
-            # assert any(np.array(tf.not_equal(a, b)).flatten())
+          if assert_weight_update:
+            after_weights = self.model.trainable_weights
+            for b, a in zip(before_weights, after_weights):
+              assert any(np.array(tf.not_equal(a, b)).flatten())
+
           if batch == 0 or batch % 100 == 0:
             print('Batch {} loss: {}'.format(batch, float(loss)))
           pbar.update(1)
-      avg_loss_on_epoch = np.mean(epoch_loss)
-      print('Epoch {} avg. training loss = {}'.format(epoch+1,float(avg_loss_on_epoch)))
       print('Epoch {} final batch loss = {}'.format(epoch+1,float(loss)))
 
       if predict_after_epoch:
@@ -128,21 +175,28 @@ class Multi_Modal():
         metrics = Metrics(self.true_labels, self.predictions)
         F1 = metrics.get_F1(return_metric=True)
         self.F1_history.append(F1)
-        validation_loss = loss_function(y_true = self.true_labels, y_pred = self.predictions)
-        print(np.sum(self.predictions, axis = 0))
+        validation_loss = loss_function(y_true=self.true_labels, 
+                                        y_pred=self.predictions)
         print('Epoch {} Validation F1: {}'.format(epoch+1,float(F1)))
-        print('Epoch {} Validation Loss: {}\n'.format(epoch+1,float(validation_loss)))
+        print('Epoch {} Validation Loss: {}\n'.format(epoch+1, float(validation_loss)))
+
         if save_weights:
-          # if F1 < F1_history[-2]:
-            # save weights here
+          if epoch == 0:
+            self.model.save(weight_file_name)
+          elif F1 > F1_history[-2]:
+            self.model.save(weight_file_name)
           pass
 
 
   def predict_model(self):
+
+    """ Makes predictions using a trained model of class ResNet on new data. """
+
     print('\nPredicting Model')
     self.predictions = []
     self.true_labels = []
-    num_batches = int(self.data_builder.test_size//self.batch_size)
+    num_batches = int(tf.round(self.data_builder.test_size/self.batch_size))
+
     with tqdm(total = num_batches) as pbar: 
       for batch, (images, audio, labels) in enumerate(self.data_builder.test_dataset):
         img = tf.cast(images,tf.float32)
@@ -153,50 +207,18 @@ class Multi_Modal():
         labels = tf.sparse.to_dense(labels)
         self.true_labels.extend(np.array(self.data_builder.multi_hot_classes(labels)))
         pbar.update(1)
+
     self.predictions = np.array(self.predictions)
     self.true_labels = np.array(self.true_labels)
 
 
-  def train_on_N_examples(self, N, epochs, learning_rate=0.001):
-    """ N = num_examples; max N is batch_size """
-    print('Training on {} examples'.format(N))
-    optimizer = tf.keras.optimizers.Adam(lr=learning_rate)
-    loss_function = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-    loss_history = []
-    X = self.data_builder.train_dataset
-    for batch, (images, audio, labels) in enumerate(self.data_builder.train_dataset):
-      img = images[0:N]
-      img = tf.reshape(img, [N,32,32,1])
-      img = tf.cast(img,tf.float32)
-      aud = audio[0:N]
-      aud = tf.reshape(aud, [N,128,1])
-      aud = tf.cast(aud,tf.float32)
-      labels = tf.sparse.to_dense(labels)
-      multi_hotted_labels = self.data_builder.multi_hot_classes(labels)
-      label = multi_hotted_labels[:N]
-      label = tf.reshape(label, [N,5])
-      break
-
-    print('True Label: {}\n'.format(label))
-    for epoch in range(epochs):
-      with tf.GradientTape() as tape:
-        logits = self.model([img, aud])
-
-        acc = tf.equal(tf.cast(label, tf.float32), tf.round(logits))
-        acc = tf.cast(acc, tf.float32)
-        acc = tf.reduce_mean(acc)
-        loss = loss_function(y_true = label, y_pred = logits)
-        loss_history.append(loss)
-      gradients = tape.gradient(target = loss, sources = self.model.trainable_weights)
-      optimizer.apply_gradients(zip(gradients, self.model.trainable_weights))
-      print('Loss {}'.format(float(loss)))
-      print('Accuracy {}\n'.format(float(acc)))
-      self.get_model_metrics(label, tf.round(logits), rates = False)
-      print('----------------------------------------')
-      input()
-
   def get_train_labels(self):
-    """ mainly used to analyze class imbalance (np.sum(self.train_labels, 0)) """
+
+    """ Returns the true labels/classes of the Dataset. 
+        Mainly used to analyze class imbalance (np.sum(self.train_labels, 0)) or 
+          for weighted loss functions.  
+    """
+
     self.train_labels = []
     for batch, (image, audio, labels) in enumerate(self.data_builder.train_dataset):
       labels = tf.sparse.to_dense(labels)
@@ -204,11 +226,13 @@ class Multi_Modal():
     self.train_labels = np.array(self.train_labels)
 
   def get_label_ratios(self):
-    labels = self.get_train_labels()
-    self.label_ratios = np.sum(model.train_labels,axis=0)/len(model.train_labels)
 
+    """ Get the ratio of each class in the Dataset. 
+        Mainly used for analytics and for weighted loss functions 
+    """
 
-
+    self.get_train_labels()
+    self.label_ratios = np.sum(self.train_labels,axis=0)/len(self.train_labels)
 
 
 if __name__ == '__main__':
@@ -219,32 +243,41 @@ if __name__ == '__main__':
   trainFiles = [os.path.join(train_dir, file) for file in os.listdir(train_dir) if '.tfrecord' in file]
   testFiles = [os.path.join(test_dir, file) for file in os.listdir(test_dir) if '.tfrecord' in file]
 
-  # build dataset
-  data_builder = tf_Data_Builder()
-  # currently only classifying 5 labels as seen in class_labels
-  data_builder.fit_multi_hot_encoder(
-    class_labels = np.array([[170],[1454],[709],[1057],[1308]]))
-  data_builder.create_train_test_dataset(
-    train_tf_datafiles = trainFiles, 
-    test_tf_datafiles = testFiles, 
-    batch_size = 32)  
+  # build dataset (currently only classifying 5 labels)
+  data_builder = tfDataBuilder()
+  data_builder.fit_multi_hot_encoder(class_labels=np.array([[170],[1454],[709],[1057],[1308]]))
+  data_builder.create_train_test_dataset(train_tf_datafiles=trainFiles, 
+                                         test_tf_datafiles=testFiles, 
+                                         batch_size=32)  
 
-  # build and compile model train, test, evaluate model 
-  model = Multi_Modal(data_builder)
-  model.compile_multi_modal_network(model_summary=False, save_img=True, save_model=True)
-  # get class/label ratios for use as alpha in Focal Loss
-  model.get_label_ratios()
-  # create Focal Loss object to pass to training
-  focal_loss = FocalLoss(alpha=model.label_ratios, class_proportions=True)
-  # train model, test, evaluate model 
-  model.train_model(
-    epochs = 100,  
-    loss_function = focal_loss,
-    learning_rate = 0.00001, 
-    predict_after_epoch = True)
-  model.predict_model()
-  metrics = Metrics(self.true_labels, self.predictions)
-  
+  # """ build, compile, train, test, and evaluate new model """
+  # model = Multi_Modal(data_builder)
+  # model.compile_multi_modal_network(model_summary=False, save_img=True, save_json=True)
+  # model.get_label_ratios()
+  # focal_loss = FocalLoss(alpha=model.label_ratios, class_proportions=True)
+  # model.train_model(epochs =100,  
+  #                   loss_function=focal_loss,
+  #                   learning_rate=0.00001, 
+  #                   predict_after_epoch=True,
+  #                   save_weights=True,
+  #                   assert_weight_update=True)
+  # model.predict_model()
+  # metrics = Metrics(self.true_labels, self.predictions)
+
+  # sys.exit()
+  """ Run with pretrained model """
+  transfer_model = Multi_Modal(data_builder, pretraned_model='multi_model.h5')
+  transfer_model.compile_multi_modal_network(model_summary=False, save_img=True, save_json=True)
+  transfer_model.get_label_ratios()
+  focal_loss = FocalLoss(alpha=transfer_model.label_ratios, class_proportions=True)
+  transfer_model.train_model(epochs=100,  
+                            loss_function=focal_loss,
+                            learning_rate=0.00001, 
+                            predict_after_epoch=True,
+                            save_weights=False,
+                            assert_weight_update=True)
+
+
   """
   -----------------------------------------------------
   Label Imbalance 
