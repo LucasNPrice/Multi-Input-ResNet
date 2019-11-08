@@ -31,10 +31,7 @@ class MultiModal():
     Must be called with tfDataBuilder object containng a tensorflow Dataset object. 
 
     Args:
-      data_builder_object: Object of class tf_Data_Builder. 
-      pretrained_model: (Optional) pretrained multi-input model in .h5 format.  
-      json_model: (Optional) model defined in .json format. 
-      weights: (Optional) weights to assign to model form .json. 
+      data_builder_object: Object of class tfDataBuilder. 
     """
 
     self.data_builder = data_builder
