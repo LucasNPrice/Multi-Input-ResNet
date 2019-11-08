@@ -188,7 +188,10 @@ class MultiModal():
           if epoch == 0:
             pass
             # self.model.save_weights(weight_file_name)
-          elif self.F1_history[-1] > self.F1_history[-2]:
+          elif all([self.F1_history[-1] > f1 for f1 in self.F1_history[:-2]]):
+            print('Updated Model at Epoch {}'.format(epoch+1))
+            print('Current F1: {}'.format(self.F1_history[-1]))
+            print('F1 History: {}'.format(self.F1_history[:-2]))
             self.model.save_weights(weight_file_name)
           pass
 
@@ -239,7 +242,7 @@ class MultiModal():
 
 
 if __name__ == '__main__':
-  
+
   # set data path and files 
   train_dir = '/Users/lukeprice/github/multi-modal/datafiles/Y8M_segmented/train'
   test_dir = '/Users/lukeprice/github/multi-modal/datafiles/Y8M_segmented/test'
