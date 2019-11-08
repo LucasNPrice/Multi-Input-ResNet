@@ -5,12 +5,12 @@ from tensorflow.keras.layers import ZeroPadding2D, Conv2D, MaxPooling2D
 from tensorflow.keras.layers import Add, Flatten, Dense, BatchNormalization
 from tensorflow.keras.layers import ZeroPadding1D, Conv1D, MaxPooling1D
 from keras.activations import relu
-from segmented_data_builder import tf_Data_Builder
 from tqdm import tqdm
 import os
 import numpy as np
 import sys
-import unittest
+
+from segmented_data_builder import tfDataBuilder
 
 class ResNet():
 
