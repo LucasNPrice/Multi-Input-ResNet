@@ -15,6 +15,7 @@ import os
 import numpy as np
 import sys
 import copy
+import pickle
 
 from ResNet import ResNet
 from segmented_data_builder import tfDataBuilder
@@ -54,7 +55,8 @@ class MultiModal():
       weights = kwargs['weights']
       self.model.load_weights(weights)  
 
-  def compile_multi_modal_network(self, model_summary=True, 
+  def compile_multi_modal_network(self, 
+                                  model_summary=True, 
                                   save_img=False, 
                                   save_json=False, 
                                   json_file_name='multi_modal_model.json'):
@@ -93,14 +95,8 @@ class MultiModal():
     x = Dense(units=1000, activation='relu', name='Merged_dense_2')(x)
     x = Dropout(0.2)(x)
     x = BatchNormalization()(x)
-
-    # # send merged features into 3rd ResNet
-    # x = tf.expand_dims(x, -1)
-    # merged_resnet = ResNet(trim_front = True, trim_end = True, X_input = x)
-    # x = merged_resnet.ResNet1D()
-    # print(x)
-    # input()
     x = Dense(100, activation='relu', name='Merged_Dense_3')(x)
+    
     output_layer = Dense(units=5, activation='sigmoid', name='output_Layer')
     outputs = output_layer(x)
     self.model = Model(inputs=[image_inputs, audio_inputs], outputs=outputs)
@@ -117,10 +113,14 @@ class MultiModal():
 
   def train_model(self, epochs, loss_function, 
                   learning_rate=0.001, 
+                  metrics = ['loss'],
                   predict_after_epoch=False, 
-                  save_weights=False, 
-                  weight_file_name='multi_modal_model.h5', 
-                  assert_weight_update=False):
+                  save_weights=False,
+                  weights_file_name=None, 
+                  save_metrics=False,
+                  metrics_file_name=None,
+                  assert_weight_update=False,
+                  **kwargs):
 
     """ Trains a multi-input model of class ResNet. 
 
@@ -128,19 +128,44 @@ class MultiModal():
       epochs: Number of epochs to train model. 
       loss_function: Loss function to train model. 
       learning_rate: Learning rate of loss function. 
-      predict_after_epoch: True to evaluate model (on new data) after each epoch; boolean. 
-      save_weights: True to save model weights to .h5 file format; currently only saves best weights as determined by F1 on validation data. 
-      weight_file_name: File name to save weights as. 
+      metrics: list of metrics to record and print during training. 
+      predict_after_epoch: True to evaluate model (on new data) after each epoch. 
+      save_weights: True to save model weights to .h5 file format. Currently only saves best weights as determined by F1 on validation data.
+        If True, weights_file_name must be defined.  
+      weights_file_name: File name to save weights to. Must be .h5 file. 
+      save_metrics: True to save training metrics as training progresses. The metrics saved are set in parameter 'metrics'.
+        If True, metrics_file_name must be defined. 
+      metrics_file_name: File name to save metrics to. Must be .pickle or .json.
       assert_weight_update: Assert that weights are updated after each batch. If true, and 
         weights are equal to the weights prior to update, assertion is triggered and model stops training. 
     """
 
+    if save_weights:
+      assert weights_file_name is not None, 'weights_file_name must be defined if save_weights=True'
+      assert predict_after_epoch, 'predict_after_epoch must be True if save_weights=True'
+    if save_metrics:
+      assert metrics_file_name is not None, 'metrics_file_name must be defined if save_metrics=True'
+      if not os.path.exists(metrics_file_name):
+        logged_metrics = {}
+        Epochs = {}
+        epoch_start = 0
+        best_F1 = 0
+      else:
+        with open(metrics_file_name, 'rb') as file:
+          logged_metrics = pickle.load(file)
+        Epochs = logged_metrics['Epochs']
+        best_F1 = 0
+        for epoch in Epochs:
+          epoch_F1 = Epochs[epoch]['metrics']['F1']
+          if epoch_F1 > best_F1:
+            best_F1 = epoch_F1
+        epoch_start = sorted(logged_metrics['Epochs'])[-1] + 1
+        epochs += epoch_start
+    self.metrics = metrics
+
     print('\nTraining Model')
     optimizer = tf.keras.optimizers.Adam(learning_rate)
-    if predict_after_epoch:
-      self.F1_history = []
-
-    for epoch in range(epochs):
+    for epoch in range(epoch_start,epochs):
       num_batches = int(self.data_builder.train_size//self.batch_size)
       with tqdm(total=num_batches) as pbar:
         for batch, (images, audio, labels) in enumerate(self.data_builder.train_dataset):
@@ -166,31 +191,50 @@ class MultiModal():
             for b, a in zip(before_weights, after_weights):
               assert any(np.array(tf.not_equal(a, b)).flatten())
 
+          # print latest training loss 
           if batch == 0 or batch % 100 == 0:
             print('Batch {} loss: {}'.format(batch, float(loss)))
           pbar.update(1)
-      print('Epoch {} final batch loss = {}'.format(epoch+1,float(loss)))
 
+      # if predict_after_epoch, get predictions and display metrics 
       if predict_after_epoch:
-        self.predict_model()
-        metrics = Metrics(self.true_labels, self.predictions)
-        F1 = metrics.get_F1(return_metric=True)
-        self.F1_history.append(F1)
-        validation_loss = loss_function(y_true=self.true_labels, 
-                                        y_pred=self.predictions)
-        print('Epoch {} Validation F1: {}'.format(epoch+1,float(F1)))
-        print('Epoch {} Validation Loss: {}\n'.format(epoch+1, float(validation_loss)))
+        metrics = self.__get_metrics(loss_function)
+        print('Epoch {} Validation Loss: {}'.format(epoch+1, metrics['metrics']['loss']))
+        print('Epoch {} Validation F1: {}\n'.format(epoch+1, metrics['metrics']['F1']))
 
+        # if save_weights, save weights if current F1 is best F1
         if save_weights:
-          if epoch == 0:
-            pass
-            # self.model.save_weights(weight_file_name)
-          elif all([self.F1_history[-1] > f1 for f1 in self.F1_history[:-2]]):
-            print('Updated Model at Epoch {}'.format(epoch+1))
-            print('Current F1: {}'.format(self.F1_history[-1]))
-            print('F1 History: {}'.format(self.F1_history[:-2]))
-            self.model.save_weights(weight_file_name)
-          pass
+          if metrics['metrics']['F1'] > best_F1:
+            self.model.save_weights(weights_file_name)
+          best_F1 = metrics['metrics']['F1']
+
+        # if save metrics, save metrics to .pickel (.json)
+        if save_metrics:
+          Epochs[epoch] = metrics
+          logged_metrics['Epochs'] = Epochs
+          with open(metrics_file_name, 'wb') as file:
+            pickle.dump(logged_metrics, file, protocol=pickle.HIGHEST_PROTOCOL)
+
+  def __get_metrics(self, loss_function):
+
+    """ Gets validation metrics during training and creates metric dictionary for saving to .pickel/.json format. """
+
+    self.predict_model()
+    Epoch = {}
+    metrics = {}
+    evaluated_metrics = Metrics(self.true_labels, self.predictions)
+
+    if 'loss' in self.metrics:
+      validation_loss = loss_function(y_true=self.true_labels, 
+                                      y_pred=self.predictions)
+      metrics['loss'] = float(validation_loss)
+    if 'F1' in self.metrics: 
+      F1 = evaluated_metrics.get_F1(return_metric=True)
+      metrics['F1'] = F1
+
+    Epoch['metrics'] = metrics
+
+    return Epoch
 
   def predict_model(self):
 
@@ -231,7 +275,7 @@ class MultiModal():
   def get_label_ratios(self):
 
     """ Get the ratio of each class in the Dataset. 
-        Mainly used for analytics and for weighted loss functions 
+        Mainly used for analytics and for weighted loss functions.
     """
 
     self.get_train_labels()
@@ -253,34 +297,48 @@ if __name__ == '__main__':
                                          test_tf_datafiles=testFiles, 
                                          batch_size=32)  
 
-  # """ build, compile, train, test, and evaluate new model """
-  # model = MultiModal(data_builder)
-  # model.compile_multi_modal_network(model_summary=False, save_img=True, save_json=True)
-  # model.get_label_ratios()
-  # focal_loss = FocalLoss(alpha=model.label_ratios, class_proportions=True)
-  # model.train_model(epochs=100,  
-  #                   loss_function=focal_loss,
-  #                   learning_rate=0.00001, 
-  #                   predict_after_epoch=True,
-  #                   save_weights=True,
-  #                   assert_weight_update=True)
-  # model.predict_model()
-  # metrics = Metrics(self.true_labels, self.predictions)
+  """ build, compile, train, test, and evaluate new model """
+  model = MultiModal(data_builder)
+  model.compile_multi_modal_network(model_summary=False, 
+                                    save_img=True, 
+                                    save_json=True,
+                                    json_file_name='saved_models/multi_modal_model.json')
+  model.get_label_ratios()
+  focal_loss = FocalLoss(alpha=model.label_ratios, class_proportions=True)
+  model.train_model(epochs=10,  
+                    loss_function=focal_loss,
+                    learning_rate=0.00001, 
+                    metrics=['loss','F1'],
+                    predict_after_epoch=True,
+                    save_weights=True,
+                    weights_file_name='saved_models/multi_modal_weights.h5',
+                    save_metrics=True,
+                    metrics_file_name='/Users/lukeprice/github/multi-modal/metric_files/multi_modal_metrics.pickle',
+                    assert_weight_update=True
+                    )
+  model.predict_model()
+  metrics = Metrics(model.true_labels, model.predictions)
+  print(metrics.get_F1(True))
 
   # sys.exit()
   """ Run with pretrained model """
   transfer_model = MultiModal(data_builder)
-  transfer_model.compile_json_model(json_model='/Users/lukeprice/github/multi-modal/multi_modal_model.json', 
-                                    weights='/Users/lukeprice/github/multi-modal/multi_modal_model.h5')
+  transfer_model.compile_json_model(json_model='/Users/lukeprice/github/multi-modal/saved_models/multi_modal_model.json',
+                                    weights='/Users/lukeprice/github/multi-modal/saved_models/multi_modal_weights.h5')
   # transfer_model.compile_multi_modal_network(model_summary=False, save_img=True, save_json=True)
   transfer_model.get_label_ratios()
   focal_loss = FocalLoss(alpha=transfer_model.label_ratios, class_proportions=True)
-  transfer_model.train_model(epochs=100,  
+  transfer_model.train_model(epochs=10,  
                             loss_function=focal_loss,
                             learning_rate=0.00001, 
+                            metrics=['loss','F1'],
                             predict_after_epoch=True,
                             save_weights=True,
-                            assert_weight_update=True)
+                            save_metrics=True,
+                            assert_weight_update=True,
+                            weights_file_name='/Users/lukeprice/github/multi-modal/saved_models/multi_modal_weights.h5',
+                            metrics_file_name='/Users/lukeprice/github/multi-modal/metric_files/multi_modal_metrics.pickle'
+                            )
 
 
   """
