@@ -51,4 +51,4 @@ if __name__ == '__main__':
   audio_metrics = get_metrics_from_file(audio_metric_file)
   
   plot_metrics(multi_metrics, image_metrics, audio_metrics, 
-               names=['multi-modal', 'image-only', 'audio_only'])
+               names=['multi-modal', 'image-only', 'audio-only'])
