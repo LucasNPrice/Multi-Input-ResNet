@@ -58,6 +58,7 @@ class MultiModal():
   def compile_multi_modal_network(self, 
                                   model_summary=True, 
                                   save_img=False, 
+                                  img_name='multi_model.png',
                                   save_json=False, 
                                   json_file_name='multi_modal_model.json'):
 
@@ -86,6 +87,7 @@ class MultiModal():
     x_image = Dropout(0.2)(x_image)
     x_image = BatchNormalization()(x_image)
     x_audio = Flatten()(x_audio)
+    x_audio = BatchNormalization()(x_audio)
     x_audio = Dense(units=1000, activation='relu', name='dense_audio')(x_audio)
     x_audio = Dropout(0.2)(x_audio)
     x_audio = BatchNormalization()(x_audio)
@@ -96,7 +98,7 @@ class MultiModal():
     x = Dropout(0.2)(x)
     x = BatchNormalization()(x)
     x = Dense(100, activation='relu', name='Merged_Dense_3')(x)
-    
+
     output_layer = Dense(units=5, activation='sigmoid', name='output_Layer')
     outputs = output_layer(x)
     self.model = Model(inputs=[image_inputs, audio_inputs], outputs=outputs)
@@ -104,7 +106,7 @@ class MultiModal():
     if model_summary:
       self.model.summary()
     if save_img:
-      keras.utils.plot_model(self.model, 'multi_model.png')
+      keras.utils.plot_model(self.model, img_name)
     if save_json:
       model_json = self.model.to_json()
       with open(json_file_name, 'w') as json_file:
@@ -162,6 +164,8 @@ class MultiModal():
         epoch_start = sorted(logged_metrics['Epochs'])[-1] + 1
         epochs += epoch_start
     self.metrics = metrics
+    print(logged_metrics)
+    input()
 
     print('\nTraining Model')
     optimizer = tf.keras.optimizers.Adam(learning_rate)
@@ -211,8 +215,14 @@ class MultiModal():
         # if save metrics, save metrics to .pickel (.json)
         if save_metrics:
           Epochs[epoch] = metrics
+          Parameters = {
+            'optimizer': optimizer,
+            'lr': learning_rate,
+            'lossFn': loss_function
+          }
           logged_metrics['Epochs'] = Epochs
           with open(metrics_file_name, 'wb') as file:
+            print(metrics_file_name)
             pickle.dump(logged_metrics, file, protocol=pickle.HIGHEST_PROTOCOL)
 
   def __get_metrics(self, loss_function):
@@ -284,7 +294,69 @@ class MultiModal():
 
 if __name__ == '__main__':
 
-  # set data path and files 
+  def filepaths(mode):
+    dir_ = '/Users/lukeprice/github/multi-modal'
+
+    if mode == 'multi':
+      json = dir_ + '/saved_models/multi_modal_model.json'
+      weights = dir_ + '/saved_models/multi_modal_weights.h5'
+      metrics = dir_ + '/metric_files/multi_modal_metrics.pickle'
+    elif mode == 'image':
+      json = dir_ + '/saved_models/image_only_model.json'
+      weights = dir_ + '/saved_models/image_only_weights.h5'
+      metrics = dir_ + '/metric_files/image_only_metrics.pickle'
+    elif mode == 'audio':
+      json = dir_ + '/saved_models/audio_only_model.json'
+      weights = dir_ + '/saved_models/audio_only_weights.h5'
+      metrics = dir_ + '/metric_files/audio_only_metrics.pickle'
+    else:
+      raise NameError('mode must be one of {}'.format('\'multi\'', '\'image\', \'audio\''))
+
+    return json, weights, metrics
+
+  def train_new_model(data_builder, json_file_name, weights_file_name, metrics_file_name):
+    """ build, compile, train, test, and evaluate new model """
+    model = MultiModal(data_builder)
+    model.compile_multi_modal_network(model_summary=False, 
+                                      save_img=False, 
+                                      save_json=True,
+                                      json_file_name=json_file_name)
+    model.get_label_ratios()
+    focal_loss = FocalLoss(alpha=model.label_ratios, class_proportions=True)
+    model.train_model(epochs=10,  
+                      loss_function=focal_loss,
+                      learning_rate=0.00001, 
+                      metrics=['loss','F1'],
+                      predict_after_epoch=True,
+                      save_weights=True,
+                      weights_file_name=weights_file_name,
+                      save_metrics=True,
+                      metrics_file_name=metrics_file_name,
+                      assert_weight_update=True
+                      )
+    model.predict_model()
+
+  def transfer_model_train(data_builder, json_file_name, weights_file_name, metrics_file_name):
+    """ Run with pretrained model """
+    transfer_model = MultiModal(data_builder)
+    transfer_model.compile_json_model(json_model=json_file_name,
+                                      weights=weights_file_name)
+    # transfer_model.compile_multi_modal_network(model_summary=False, save_img=True, save_json=True)
+    transfer_model.get_label_ratios()
+    focal_loss = FocalLoss(alpha=transfer_model.label_ratios, class_proportions=True)
+    transfer_model.train_model(epochs=10,  
+                              loss_function=focal_loss,
+                              learning_rate=0.00001, 
+                              metrics=['loss','F1'],
+                              predict_after_epoch=True,
+                              save_weights=True,
+                              save_metrics=True,
+                              assert_weight_update=True,
+                              weights_file_name=weights_file_name,
+                              metrics_file_name=metrics_file_name
+                              )
+
+      # set data path and files 
   train_dir = '/Users/lukeprice/github/multi-modal/datafiles/Y8M_segmented/train'
   test_dir = '/Users/lukeprice/github/multi-modal/datafiles/Y8M_segmented/test'
   trainFiles = [os.path.join(train_dir, file) for file in os.listdir(train_dir) if '.tfrecord' in file]
@@ -297,50 +369,15 @@ if __name__ == '__main__':
                                          test_tf_datafiles=testFiles, 
                                          batch_size=32)  
 
-  """ build, compile, train, test, and evaluate new model """
-  model = MultiModal(data_builder)
-  model.compile_multi_modal_network(model_summary=False, 
-                                    save_img=True, 
-                                    save_json=True,
-                                    json_file_name='saved_models/multi_modal_model.json')
-  model.get_label_ratios()
-  focal_loss = FocalLoss(alpha=model.label_ratios, class_proportions=True)
-  model.train_model(epochs=10,  
-                    loss_function=focal_loss,
-                    learning_rate=0.00001, 
-                    metrics=['loss','F1'],
-                    predict_after_epoch=True,
-                    save_weights=True,
-                    weights_file_name='saved_models/multi_modal_weights.h5',
-                    save_metrics=True,
-                    metrics_file_name='/Users/lukeprice/github/multi-modal/metric_files/multi_modal_metrics.pickle',
-                    assert_weight_update=True
-                    )
-  model.predict_model()
-  metrics = Metrics(model.true_labels, model.predictions)
-  print(metrics.get_F1(True))
-
-  # sys.exit()
-  """ Run with pretrained model """
-  transfer_model = MultiModal(data_builder)
-  transfer_model.compile_json_model(json_model='/Users/lukeprice/github/multi-modal/saved_models/multi_modal_model.json',
-                                    weights='/Users/lukeprice/github/multi-modal/saved_models/multi_modal_weights.h5')
-  # transfer_model.compile_multi_modal_network(model_summary=False, save_img=True, save_json=True)
-  transfer_model.get_label_ratios()
-  focal_loss = FocalLoss(alpha=transfer_model.label_ratios, class_proportions=True)
-  transfer_model.train_model(epochs=10,  
-                            loss_function=focal_loss,
-                            learning_rate=0.00001, 
-                            metrics=['loss','F1'],
-                            predict_after_epoch=True,
-                            save_weights=True,
-                            save_metrics=True,
-                            assert_weight_update=True,
-                            weights_file_name='/Users/lukeprice/github/multi-modal/saved_models/multi_modal_weights.h5',
-                            metrics_file_name='/Users/lukeprice/github/multi-modal/metric_files/multi_modal_metrics.pickle'
-                            )
-
-
+  json_file, weights_file, metrics_file = filepaths('multi')
+  train_new_model(data_builder=data_builder,
+                  json_file_name=json_file,
+                  weights_file_name=weights_file,
+                  metrics_file_name=metrics_file)
+  transfer_model_train(data_builder=data_builder,
+                       json_file_name=json_file,
+                       weights_file_name=weights_file,
+                       metrics_file_name=metrics_file)
   """
   -----------------------------------------------------
   Label Imbalance 

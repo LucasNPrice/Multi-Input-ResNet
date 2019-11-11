@@ -36,3 +36,21 @@ class Metrics():
     self.f1_score = 2 * ((precision * recall) / (precision + recall))
     if return_metric:
       return self.f1_score
+
+if __name__ == '__main__':
+  # multi_modal_weights was written over
+  # multi_modal_metrics was incorrectly written two extra metrics 
+  import matplotlib.pyplot as plt
+  import pickle
+  multi_metric_file = '/Users/lukeprice/github/multi-modal/metric_files/multi_modal_metrics.pickle'
+  image_metric_file = '/Users/lukeprice/github/multi-modal/metric_files/image_only_metrics.pickle'
+  with open(metric_file, 'rb') as file:
+    logged_metrics = pickle.load(file)
+  f1_history = []
+  Epochs = logged_metrics['Epochs']
+  for epoch in Epochs:
+    print(Epochs[epoch]['metrics'])
+    f1_history.append(Epochs[epoch]['metrics']['F1'])
+  print(len(f1_history))
+  # plt.plot(f1_history)
+  # plt.show()
