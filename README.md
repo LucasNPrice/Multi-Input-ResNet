@@ -18,8 +18,8 @@
   - Focal Loss results display a dramatic increase in performance over Binary Crosstropy (validation F1-score from 0.5 with BCE to 0.93 with Focal Loss) for this network trained on a subset of the Youtube8M dataset.
   
   ## Learning Results
-  Below displays learning results of running a multi-input model (image and audio) versus a single input model (image or audio). 
   <img src="images/learning_comparisons.png" alt="learning_F1"/>
+  Above displays learning results of running a multi-input model (image and audio) versus a single input model (image or audio). 
   
   ## Multi-Input Network Graph
   <img src="images/multi_model.png" alt="model_graph" width="500" height="1500"/>
