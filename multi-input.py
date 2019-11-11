@@ -165,7 +165,6 @@ class MultiModal():
         epochs += epoch_start
     self.metrics = metrics
     print(logged_metrics)
-    input()
 
     print('\nTraining Model')
     optimizer = tf.keras.optimizers.Adam(learning_rate)
@@ -214,13 +213,18 @@ class MultiModal():
 
         # if save metrics, save metrics to .pickel (.json)
         if save_metrics:
-          Epochs[epoch] = metrics
           Parameters = {
             'optimizer': optimizer,
             'lr': learning_rate,
             'lossFn': loss_function
           }
+          metrics['parameters'] = Parameters
+          Epochs[epoch] = metrics
+          print(Epochs)
+          input()
           logged_metrics['Epochs'] = Epochs
+          print(logged_metrics)
+          input()
           with open(metrics_file_name, 'wb') as file:
             print(metrics_file_name)
             pickle.dump(logged_metrics, file, protocol=pickle.HIGHEST_PROTOCOL)
@@ -298,9 +302,9 @@ if __name__ == '__main__':
     dir_ = '/Users/lukeprice/github/multi-modal'
 
     if mode == 'multi':
-      json = dir_ + '/saved_models/multi_modal_model.json'
-      weights = dir_ + '/saved_models/multi_modal_weights.h5'
-      metrics = dir_ + '/metric_files/multi_modal_metrics.pickle'
+      json = dir_ + '/saved_models/multi_modal_model_2.json'
+      weights = dir_ + '/saved_models/multi_modal_weights_2.h5'
+      metrics = dir_ + '/metric_files/multi_modal_metrics_2.pickle'
     elif mode == 'image':
       json = dir_ + '/saved_models/image_only_model.json'
       weights = dir_ + '/saved_models/image_only_weights.h5'
@@ -325,7 +329,7 @@ if __name__ == '__main__':
     focal_loss = FocalLoss(alpha=model.label_ratios, class_proportions=True)
     model.train_model(epochs=10,  
                       loss_function=focal_loss,
-                      learning_rate=0.00001, 
+                      learning_rate=0.0001, 
                       metrics=['loss','F1'],
                       predict_after_epoch=True,
                       save_weights=True,
@@ -378,6 +382,11 @@ if __name__ == '__main__':
                        json_file_name=json_file,
                        weights_file_name=weights_file,
                        metrics_file_name=metrics_file)
+
+  # lr=0.00001? lr results in .92 F1
+  # lr=0.00001 achieved 0.950120107390137 F1 at epoch 15, but weights were no longer changing after epoch 15.
+
+
   """
   -----------------------------------------------------
   Label Imbalance 
