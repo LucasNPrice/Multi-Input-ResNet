@@ -3,7 +3,7 @@ import keras.backend as K
 import numpy as np
 
 class FocalLoss():
-  def __init__(self, alpha, gamma = 2.0, class_proportions = True): 
+  def __init__(self, alpha, gamma=2.0, class_proportions=True): 
 
     """ Creates an object of class FocalLoss.
 
