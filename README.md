@@ -15,11 +15,11 @@
 **focal_loss.py**
   - Multi-class, multi-label Focal Loss function.
   - Parameter 'alpha' is a class weighting array where each element in the array corresponds to the weighting factor for that specific class. For example, if classifying 5 different classes then alpha should be a (1,5) array of weights.
-  - Focal Loss results display a dramatic increase in performance over Binary Crosstropy (validation F1-score from 0.5 with BCE to 0.93 with Focal Loss) for this network trained on a subset of the Youtube8M dataset.
+  - Focal Loss results display a dramatic increase in performance over Binary Crosstropy (validation F1-score from 0.5 with BCE to 0.95 with Focal Loss) for this network trained on a subset of the Youtube8M dataset.
   
   ## Learning Results
   <img src="images/learning_comparisons.png" alt="learning_F1"/>
-  Above displays learning results of running a multi-input model (image and audio) versus a single input model (image or audio). 
+  Above displays learning results of running a multi-input model (image and audio) versus a single input model (image or audio) with different learning rates. 
   
   ## Multi-Input Network Graph
   <img src="images/multi_model.png" alt="model_graph" width="500" height="1500"/>
